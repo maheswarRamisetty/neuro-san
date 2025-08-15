@@ -64,6 +64,36 @@
         "max_output_tokens": 32768,
         "knowledge_cutoff": "09/30/2023",
     },
+    "gpt-5": {
+        "use_model_name": "gpt-5-2025-08-07",
+    },
+    "gpt-5-2025-08-07": {
+        "class": "openai",
+        "model_info_url": "https://platform.openai.com/docs/models/gpt-5",
+        "modalities": {
+            "input": [ "text", "image" ],
+            "output": [ "text" ],
+        },
+        "capabilities": [ "tools" ],
+        "context_window_size": 400000,
+        "max_output_tokens": 128000,
+        "knowledge_cutoff": "09/30/2024",
+    },
+    "gpt-5-mini": {
+        "use_model_name": "gpt-5-mini-2025-08-07",
+    },
+    "gpt-5-mini-2025-08-07": {
+        "class": "openai",
+        "model_info_url": "https://platform.openai.com/docs/models/gpt-5-mini",
+        "modalities": {
+            "input": [ "text", "image" ],
+            "output": [ "text" ],
+        },
+        "capabilities": [ "tools" ],
+        "context_window_size": 400000,
+        "max_output_tokens": 128000,
+        "knowledge_cutoff": "05/30/2024",
+    },
     "gpt-4.1": {
         "use_model_name": "gpt-4.1-2025-04-14",
     },
@@ -395,6 +425,23 @@
         "use_model_name": "claude-opus-4-20250514"
     },
     "claude-opus-4-20250514": {
+        "class": "anthropic",
+        "model_info_url": "https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table",
+        "modalities": {
+            "input": [ "text", "image" ],
+            "output": [ "text" ],
+        },
+        # Tool use: https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview#pricing
+        "capabilities": [ "tools" ],
+        "context_window_size": 200000,
+        "max_output_tokens": 32000,
+        "knowledge_cutoff": "03/2025",
+    },
+
+    "claude-opus-4-1": {
+        "use_model_name": "claude-opus-4-1-20250805"
+    },
+    "claude-opus-4-1-20250805": {
         "class": "anthropic",
         "model_info_url": "https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table",
         "modalities": {
@@ -763,7 +810,7 @@
             "args": {
                 # Note that we can only supply arguments that are "Just Data" in nature.
                 # See https://python.langchain.com/api_reference/openai/chat_models/langchain_openai.chat_models.base.ChatOpenAI.html
-                "temperature": 0.7,
+                "temperature": null,
                 "openai_api_key": null,
                 "openai_api_base": null,
                 "openai_organization": null,
