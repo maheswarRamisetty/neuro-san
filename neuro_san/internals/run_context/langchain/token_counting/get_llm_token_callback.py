@@ -13,6 +13,8 @@
 from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
+from typing import Any
+from typing import Dict
 from typing import Optional
 
 from langchain_core.tracers.context import register_configure_hook
@@ -28,7 +30,7 @@ register_configure_hook(llm_token_callback_var, inheritable=True)
 
 
 @contextmanager
-def get_llm_token_callback() -> Generator[LlmTokenCallbackHandler, None, None]:
+def get_llm_token_callback(llm_infos: Dict[str, Any]) -> Generator[LlmTokenCallbackHandler, None, None]:
     """Get llm token callback.
 
     Get context manager for tracking usage metadata across chat model calls using
@@ -38,7 +40,7 @@ def get_llm_token_callback() -> Generator[LlmTokenCallbackHandler, None, None]:
     - https://python.langchain.com/api_reference/_modules/langchain_core/callbacks/usage.html
     #get_usage_metadata_callback
     """
-    cb = LlmTokenCallbackHandler()
+    cb = LlmTokenCallbackHandler(llm_infos)
     llm_token_callback_var.set(cb)
     yield cb
     llm_token_callback_var.set(None)

@@ -9,6 +9,7 @@
 # neuro-san SDK Software in commercial settings.
 #
 # END COPYRIGHT
+import copy
 from typing import Any
 from typing import Awaitable
 from typing import Dict
@@ -21,14 +22,9 @@ from contextvars import ContextVar
 from contextvars import copy_context
 from time import time
 
-from langchain_community.callbacks.openai_info import OpenAICallbackHandler
-from langchain_community.callbacks.manager import get_openai_callback
-from langchain_community.callbacks.manager import openai_callback_var
 from langchain_core.callbacks import AsyncCallbackHandler
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.language_models.base import BaseLanguageModel
-from langchain_openai.chat_models.azure import AzureChatOpenAI
-from langchain_openai.chat_models.base import ChatOpenAI
 
 from leaf_common.asyncio.asyncio_executor import AsyncioExecutor
 
@@ -39,7 +35,6 @@ from neuro_san.internals.messages.agent_message import AgentMessage
 from neuro_san.internals.messages.origination import Origination
 from neuro_san.internals.run_context.langchain.token_counting.get_llm_token_callback import get_llm_token_callback
 from neuro_san.internals.run_context.langchain.token_counting.get_llm_token_callback import llm_token_callback_var
-from neuro_san.internals.run_context.langchain.token_counting.llm_token_callback_handler import LlmTokenCallbackHandler
 
 # Keep a ContextVar for the origin info.  We do this because the
 # langchain callbacks this stuff is based on also uses ContextVars
@@ -57,6 +52,15 @@ class LangChainTokenCounter:
     are in get_callback_for_llm()
     """
 
+    # This is for calculating model token dict by subtracting it from cumulative models token dict
+    previous_cumulative_models_token_dict: Dict[str, Any] = {}
+
+    # This is for calculating cumulative time taken by the frontman (LLMs + overhead)
+    time_per_iter: List[float] = []
+
+    # This is for keeping track of frontman
+    _instance_count = 0
+
     def __init__(self, llm: BaseLanguageModel,
                  invocation_context: InvocationContext,
                  journal: OriginatingJournal):
@@ -72,6 +76,11 @@ class LangChainTokenCounter:
         self.invocation_context: InvocationContext = invocation_context
         self.journal: OriginatingJournal = journal
         self.debug: bool = False
+
+        # Frontman has instance number = 0
+        self.instance_number = LangChainTokenCounter._instance_count
+        # Other agents have higher instance number because they were called later
+        LangChainTokenCounter._instance_count += 1
 
     async def count_tokens(self, awaitable: Awaitable) -> Any:
         """
@@ -91,7 +100,7 @@ class LangChainTokenCounter:
 
         retval: Any = None
         llm_factory: ContextTypeLlmFactory = self.invocation_context.get_llm_factory()
-        print(f"{llm_factory.llm_infos=}")
+        llm_infos: Dict[str, Any] = llm_factory.llm_infos
         # Take a time stamp so we measure another thing people care about - latency.
         start_time: float = time()
 
@@ -99,42 +108,39 @@ class LangChainTokenCounter:
         # The means by which this happens is on a per-LLM basis, so get the right hook
         # given the LLM we've got.
         callback: Union[AsyncCallbackHandler, BaseCallbackHandler] = None
-        token_counter_context_manager = self.get_callback_for_llm(self.llm)
 
-        if token_counter_context_manager is not None:
+        # Record origin information in our own context var so we can associate
+        # with the langchain callback context vars more easily.
+        origin: List[Dict[str, Any]] = self.journal.get_origin()
+        origin_str: str = Origination.get_full_name_from_origin(origin)
+        ORIGIN_INFO.set(origin_str)
 
-            # Record origin information in our own context var so we can associate
-            # with the langchain callback context vars more easily.
-            origin: List[Dict[str, Any]] = self.journal.get_origin()
-            origin_str: str = Origination.get_full_name_from_origin(origin)
-            ORIGIN_INFO.set(origin_str)
+        old_callback: Union[AsyncCallbackHandler, BaseCallbackHandler] = None
+        callback_var: ContextVar = llm_token_callback_var
+        old_callback = callback_var.get()
 
-            old_callback: Union[AsyncCallbackHandler, BaseCallbackHandler] = None
-            callback_var: ContextVar = self.get_context_var_for_llm(self.llm)
-            if callback_var is not None:
-                old_callback = callback_var.get()
+        # Use the context manager to count tokens as per
+        #   https://python.langchain.com/docs/how_to/llm_token_usage_tracking/#using-callbacks
+        #
+        # Caveats:
+        # * In using this context manager approach, any tool that is called
+        #   also has its token counts contributing to its callers for better or worse.
+        # * As of 2/21/25, it seems that tool-calling agents (branch nodes) are not
+        #   registering their tokens correctly. Not sure if this is a bug in langchain
+        #   or there is something we are not doing in that scenario that we should be.
+        # * As of 8/21/25, placing the journaling callback in the invoke config
+        #   appears to change the context manager’s behavior. The returned tokens from callback
+        #   are now limited to the calling agent only, and no longer include those
+        #   from downstream (chained) agents. However, `cumulative_models_token_dict`` is added
+        #   to the `LlmTokenCallbackHandler` to collect token stats of each model call.
+        with get_llm_token_callback(llm_infos) as callback:
+            # Create a new context for different ContextVar values
+            # and use the create_task() to run within that context.
+            new_context: Context = copy_context()
+            task: Task = new_context.run(self.create_task, awaitable)
+            retval = await task
 
-            # Use the context manager to count tokens as per
-            #   https://python.langchain.com/docs/how_to/llm_token_usage_tracking/#using-callbacks
-            #
-            # Caveats:
-            # * In using this context manager approach, any tool that is called
-            #   also has its token counts contributing to its callers for better or worse.
-            # * As of 2/21/25, it seems that tool-calling agents (branch nodes) are not
-            #   registering their tokens correctly. Not sure if this is a bug in langchain
-            #   or there is something we are not doing in that scenario that we should be.
-            with token_counter_context_manager() as callback:
-                # Create a new context for different ContextVar values
-                # and use the create_task() to run within that context.
-                new_context: Context = copy_context()
-                task: Task = new_context.run(self.create_task, awaitable)
-                retval = await task
-
-            if callback_var is not None:
-                callback_var.set(old_callback)
-        else:
-            # No token counting was available for the LLM, but we still need to invoke.
-            retval = await awaitable
+        callback_var.set(old_callback)
 
         # Figure out how much time our agent took.
         end_time: float = time()
@@ -155,7 +161,7 @@ class LangChainTokenCounter:
 
         if self.debug:
             # Print to be sure we have a different callback object.
-            oai_call = openai_callback_var.get()
+            oai_call = llm_token_callback_var.get()
             print(f"origin is {origin_str} callback var is {id(oai_call)}")
 
         return task
@@ -167,11 +173,15 @@ class LangChainTokenCounter:
         :param callback: An AsyncCallbackHandler or BaseCallbackHandle instance that contains token counting information
         :param time_taken_in_seconds: The amount of time the awaitable took in count_tokens()
         """
-        # Token counting results are collected in the callback, if there are any.
-        # Different LLMs can count things in different ways, so normalize.
-        token_dict: Dict[str, Any] = self.normalize_token_count(callback, time_taken_in_seconds)
-        if token_dict is None or not bool(token_dict):
-            return
+
+        agent_name: str = ORIGIN_INFO.get().split(".")[-1]
+        # Token counting results are collected in the callback.
+        # Create a token counding dictionary for each agent
+        agent_token_dict: Dict[str, Any] = self._generate_agent_token_dict(callback, time_taken_in_seconds, agent_name)
+        if self.journal is not None:
+            # We actually have a token dictionary to report, so go there.
+            agent_message = AgentMessage(structure=agent_token_dict)
+            await self.journal.write_message(agent_message)
 
         # Accumulate what we learned about tokens to request reporting.
         # For now we just overwrite the one key because we know
@@ -179,84 +189,48 @@ class LangChainTokenCounter:
         # are cumulative.  At some point we might want a finer-grained breakdown
         # that perhaps contributes to a service/er-wide periodic token stats breakdown
         # of some kind.  For now, get something going.
-        request_reporting: Dict[str, Any] = self.invocation_context.get_request_reporting()
-        request_reporting["token_accounting"] = token_dict
+        #
+        # Update (8/21/25):
+        # Placing the journaling callback in the invoke config changes the context
+        # manager’s behavior. The returned tokens from the callback are now limited
+        # to the calling agent only, not downstream (chained) agents.
+        # Instead, `cumulative_models_token_dict` has been added to
+        # `LlmTokenCallbackHandler` to collect per-model token stats.
+        # Since the frontman is always the last to finish, by the time it exits,
+        # `cumulative_models_token_dict` is complete and ready to report.
 
-        if self.journal is not None:
-            # We actually have a token dictionary to report, so go there.
-            agent_message = AgentMessage(structure=token_dict)
-            await self.journal.write_message(agent_message)
+        # If instance number is zero then it is frontman
+        if self.instance_number == 0:
+            self.time_per_iter.append(time_taken_in_seconds)
+            request_reporting: Dict[str, Any] = self.invocation_context.get_request_reporting()
+            cumulative_models_token_dict: Dict[str, Any] = callback.cumulative_models_token_dict
+            self._generate_token_reporting(cumulative_models_token_dict, request_reporting)
 
-    @staticmethod
-    def get_callback_for_llm(llm: BaseLanguageModel) -> Any:
+            # Copy the cumulative models token dict for subtraction in the next iteration
+            LangChainTokenCounter.previous_cumulative_models_token_dict = \
+                copy.deepcopy(callback.cumulative_models_token_dict)
+            # Reset counter for the next iteration
+            LangChainTokenCounter._instance_count = 0
+
+    def _generate_agent_token_dict(
+            self,
+            callback: Union[AsyncCallbackHandler, BaseCallbackHandler],
+            time_taken_in_seconds: float,
+            agent_name: str
+    ) -> Dict[str, Any]:
         """
-        :param llm: A BaseLanguageModel returned from an LlmFactory.
-        :return: A handle to a no-args function, that when called will
-                open up a context manager for token counting.
-                If not an OpenAI or Anthropic model, use context manager
-                for LlmTokenCallbackHandler, which also gets token usage
-                from "usage_metadata" but give "total_cost" = 0.
-        """
-
-        if isinstance(llm, (ChatOpenAI, AzureChatOpenAI)):
-            # Notes:
-            #   * ChatOpenAI needs to have stream_usage=True configured
-            #     in order to get good token info back reliably.
-            #   * AzureChatOpenAI needs to have model_kwargs.stream_options.include_usage=True
-            #     configured in order to get good token info back reliably.
-            return get_openai_callback
-
-        # * ChatAnthropic needs to have stream_usage=True configured
-        #   in order to get good token info back reliably.
-        #   Per class docs this is on by default.
-
-        # Open up a context manager for LlmTokenCallbackHandler, which also gets token usage
-        # from "usage_metadata"
-        # # Cost for Anthropic models can be determined as we import the lookup table
-        # from https://python.langchain.com/api_reference/_modules/langchain_community/callbacks/
-        # bedrock_anthropic_callback.html#BedrockAnthropicTokenUsageCallbackHandler
-        # for non "claude" model "total_cost" = 0.0.
-        return get_llm_token_callback
-
-    @staticmethod
-    def get_context_var_for_llm(llm: BaseLanguageModel) -> ContextVar:
-        """
-        :param llm: A BaseLanguageModel returned from an LlmFactory.
-        :return: A ContextVar that corresponds to where token counting callback
-                information is going.
-                If not an OpenAI or Anthropic model, use llm_token_callback_var.
-        """
-
-        if isinstance(llm, (ChatOpenAI, AzureChatOpenAI)):
-            return openai_callback_var
-
-        # Collect tokens for models other than OpenAI
-        return llm_token_callback_var
-
-    @staticmethod
-    def normalize_token_count(callback: Union[AsyncCallbackHandler, BaseCallbackHandler],
-                              time_taken_in_seconds: float
-                              ) -> Dict[str, Any]:
-        """
-        Normalizes the values in the token counting callback into a standard dictionary
+        Generate the token counting dictionary for journals
 
         :param callback: An AsyncCallbackHandler or BaseCallbackHandler instance that contains
                             token counting information
         :param time_taken_in_seconds: The amount of time the awaitable took in count_tokens()
+        :param agent_name: Name of the agent responsible for the token dictionary
+        :return: Formatted token dictionary
         """
 
-        token_dict: Dict[str, Any] = {
-            "time_taken_in_seconds": time_taken_in_seconds
-        }
-        if callback is None:
-            return token_dict
-
-        if isinstance(
-            callback,
-            (OpenAICallbackHandler, LlmTokenCallbackHandler)
-        ):
-            # So far these two instances share the same reporting structure
-            token_dict = {
+        # Organize the token dict for each agent to be the same format
+        agent_token_dict = {
+            f"{agent_name}_token_accounting": {
                 "total_tokens": callback.total_tokens,
                 "prompt_tokens": callback.prompt_tokens,
                 "completion_tokens": callback.completion_tokens,
@@ -266,7 +240,82 @@ class LangChainTokenCounter:
                 "caveats": [
                     "Token usage is tracked at the agent level.",
                     "Token counts are approximate and estimated using tiktoken.",
+                    "time_taken_in_seconds includes overhead from Langchain and Neuro-SAN"
                 ]
             }
+        }
 
-        return token_dict
+        return agent_token_dict
+
+    def _generate_token_reporting(
+            self,
+            cumulative_models_token_dict: Dict[str, Any],
+            request_reporting: Dict[str, Any]
+    ):
+        """
+        Generate token accounting reports with cumulative and delta calculations.
+        :param cumulative_models_token_dict: Cumulative values of stats for each model
+        :param request_reporting: Dictionary to report after frontman finishes
+        """
+
+        # Calculate model token stats for this iteration
+        models_token_dict = self._calculate_models_token_dict(cumulative_models_token_dict)
+
+        # Network stats: time includes overhead from both LangChain and Neuro-SAN.
+        # Model stats: time reflects only the LLM execution.
+
+        # Report network and models token accounting
+
+        # Time for this iteration is the last one in the "time_per_iter" list
+        request_reporting["network_token_accounting"] = self._sum_all_tokens(
+            models_token_dict, self.time_per_iter[-1]
+        )
+        request_reporting["models_token_accounting"] = models_token_dict
+
+        # Report cumulative network and models token accounting
+
+        # Sum "time_per_iter" list to get cumulative time
+        request_reporting["cumulative_network_token_accounting"] = self._sum_all_tokens(
+            cumulative_models_token_dict, sum(self.time_per_iter)
+        )
+        request_reporting["cumulative_models_token_accounting"] = cumulative_models_token_dict
+
+    def _calculate_models_token_dict(self, cumulative_models_token_dict) -> Dict[str, Any]:
+        """
+        Calculate models token dict from the difference between cumulative and previous cumulative token stats.
+        :param cumulative_models_token_dict: Cumulative values of token stats for each model
+        :return: Values of token stats for each model invoked in this iteration
+        """
+        models_token_dict: Dict[str, Any] = {}
+        for provider, models in cumulative_models_token_dict.items():
+            models_token_dict[provider] = {}
+            for model, cumulative_stats in models.items():
+                one_iteration_stats = {}
+                prev_cumulative_stats = self.previous_cumulative_models_token_dict.get(provider, {}).get(model, {})
+                # Calculate value of each metric
+                for metric, cumulative_value in cumulative_stats.items():
+                    # If it is a model that doen not existing previously, set the metric to zero
+                    prev_cumulative_value = prev_cumulative_stats.get(metric, 0)
+                    one_iteration_stats[metric] = cumulative_value - prev_cumulative_value
+
+                models_token_dict[provider][model] = one_iteration_stats
+
+        return models_token_dict
+
+    def _sum_all_tokens(self, token_dict: Dict[str, Any], time_value: float) -> Dict[str, Any]:
+        """
+        Sum all token metrics across providers and models, **excluding time**.
+        :param token_dict: Models token dict to aggregate into network stats
+        :param time_value: Time taken for frontman to finish
+        :return: Token stats of the entire network, either cumulative or single iteration
+        """
+        aggregated: Dict[str, Any] = {}
+        for models in token_dict.values():
+            for model_stats in models.values():
+                for metric, value in model_stats.items():
+                    if metric != "time_taken_in_seconds":
+                        aggregated[metric] = aggregated.get(metric, 0) + value
+
+        aggregated["time_taken_in_seconds"] = time_value
+
+        return aggregated
