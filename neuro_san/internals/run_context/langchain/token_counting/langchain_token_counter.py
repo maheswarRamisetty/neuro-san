@@ -131,7 +131,7 @@ class LangChainTokenCounter:
         # * As of 8/21/25, placing the journaling callback in the invoke config
         #   appears to change the context manager’s behavior. The returned tokens from callback
         #   are now limited to the calling agent only, and no longer include those
-        #   from downstream (chained) agents. However, `cumulative_models_token_dict`` is added
+        #   from downstream (chained) agents. However, `cumulative_models_token_dict` is added
         #   to the `LlmTokenCallbackHandler` to collect token stats of each model call.
         with get_llm_token_callback(llm_infos) as callback:
             # Create a new context for different ContextVar values
