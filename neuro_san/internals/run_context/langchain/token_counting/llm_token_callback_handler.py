@@ -132,11 +132,6 @@ class LlmTokenCallbackHandler(AsyncCallbackHandler):
     If no price information is found, the cost defaults to 0.
     """
 
-    # Dictionary for accumulating token stats of models. For example
-    # {"openai": {"gpt-4o": {"total_tokens": 100, "prompt_tokens": 80, ...}, "gpt_4.1": {...}}, }
-    # Note that models with the same name but different providers counts as different models.
-    cumulative_models_token_dict: Dict[str, Any] = {}
-
     # Token stats
     total_tokens: int = 0
     prompt_tokens: int = 0
@@ -152,6 +147,11 @@ class LlmTokenCallbackHandler(AsyncCallbackHandler):
         self.provider_class: str = None
         self.start_time: float = None
 
+        # Dictionary for accumulating token stats of models. For example
+        # {"openai": {"gpt-4o": {"total_tokens": 100, "prompt_tokens": 80, ...}, "gpt_4.1": {...}}, }
+        # Note that models with the same name but different providers counts as different models.
+        self.models_token_dict: Dict[str, Any] = {}
+
     @override
     def __repr__(self) -> str:
         return (
@@ -159,7 +159,8 @@ class LlmTokenCallbackHandler(AsyncCallbackHandler):
             f"\tPrompt Tokens: {self.prompt_tokens}\n"
             f"\tCompletion Tokens: {self.completion_tokens}\n"
             f"Successful Requests: {self.successful_requests}\n"
-            f"Total Cost (USD): ${self.total_cost}"
+            f"Total Cost (USD): ${self.total_cost}\n"
+            f"Model Info: {self.models_token_dict}"
         )
 
     @override
@@ -180,8 +181,8 @@ class LlmTokenCallbackHandler(AsyncCallbackHandler):
         # If no match found, use chat model class instead
         if not self.provider_class:
             self.provider_class = chat_model_class
-        if self.provider_class not in self.cumulative_models_token_dict:
-            self.cumulative_models_token_dict[self.provider_class] = {}
+        if self.provider_class not in self.models_token_dict:
+            self.models_token_dict[self.provider_class] = {}
 
         # Start timer
         self.start_time = time()
@@ -234,17 +235,17 @@ class LlmTokenCallbackHandler(AsyncCallbackHandler):
             # Update shared state behind lock
             async with self._lock:
                 # Initialize model entry if this is the first time we see this model
-                if model_name not in self.cumulative_models_token_dict[self.provider_class]:
+                if model_name not in self.models_token_dict[self.provider_class]:
                     self._init_model_entry(model_name)
 
                 # Update per-model stats.
-                self.cumulative_models_token_dict[self.provider_class][model_name]["total_tokens"] += total_tokens
-                self.cumulative_models_token_dict[self.provider_class][model_name]["prompt_tokens"] += prompt_tokens
-                self.cumulative_models_token_dict[self.provider_class][model_name]["completion_tokens"] += \
+                self.models_token_dict[self.provider_class][model_name]["total_tokens"] += total_tokens
+                self.models_token_dict[self.provider_class][model_name]["prompt_tokens"] += prompt_tokens
+                self.models_token_dict[self.provider_class][model_name]["completion_tokens"] += \
                     completion_tokens
-                self.cumulative_models_token_dict[self.provider_class][model_name]["successful_requests"] += 1
-                self.cumulative_models_token_dict[self.provider_class][model_name]["total_cost"] += total_cost
-                self.cumulative_models_token_dict[self.provider_class][model_name]["time_taken_in_seconds"] += \
+                self.models_token_dict[self.provider_class][model_name]["successful_requests"] += 1
+                self.models_token_dict[self.provider_class][model_name]["total_cost"] += total_cost
+                self.models_token_dict[self.provider_class][model_name]["time_taken_in_seconds"] += \
                     time_taken_in_seconds
 
                 # Update per-agent stats
@@ -329,7 +330,7 @@ class LlmTokenCallbackHandler(AsyncCallbackHandler):
         Initialize a new model entry in the tracking dictionary.
         :param model_name: LLM model name to put in the dictionary
         """
-        self.cumulative_models_token_dict[self.provider_class][model_name] = {
+        self.models_token_dict[self.provider_class][model_name] = {
             "total_tokens": 0,
             "prompt_tokens": 0,
             "completion_tokens": 0,

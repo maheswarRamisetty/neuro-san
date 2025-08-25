@@ -39,8 +39,20 @@ def get_llm_token_callback(llm_infos: Dict[str, Any]) -> Generator[LlmTokenCallb
     This class is a modification of LangChain’s "UsageMetadataCallbackHandler":
     - https://python.langchain.com/api_reference/_modules/langchain_core/callbacks/usage.html
     #get_usage_metadata_callback
+
+    :param llm_infos: Dictionary containing configuration or metadata about the LLM
+                      (e.g., model name, class (provider), token cost).
+    :return: A generator-based context manager that yields an `LlmTokenCallbackHandler`
+             for tracking token usage within the context.
     """
+    # Create a new callback handler instance for tracking token usage
     cb = LlmTokenCallbackHandler(llm_infos)
+
+    # Set the context variable to the newly created callback handler
     llm_token_callback_var.set(cb)
+
+    # Yield the callback handler to the context block
     yield cb
+
+    # Reset the context variable to None when the context exits
     llm_token_callback_var.set(None)

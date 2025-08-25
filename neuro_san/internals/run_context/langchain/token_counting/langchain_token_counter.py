@@ -9,7 +9,7 @@
 # neuro-san SDK Software in commercial settings.
 #
 # END COPYRIGHT
-import copy
+
 from typing import Any
 from typing import Awaitable
 from typing import Dict
@@ -52,15 +52,6 @@ class LangChainTokenCounter:
     are in get_callback_for_llm()
     """
 
-    # This is for calculating model token dict by subtracting it from cumulative models token dict
-    previous_cumulative_models_token_dict: Dict[str, Any] = {}
-
-    # This is for calculating cumulative time taken by the frontman (LLMs + overhead)
-    time_per_iter: List[float] = []
-
-    # This is for keeping track of frontman
-    _instance_count = 0
-
     def __init__(self, llm: BaseLanguageModel,
                  invocation_context: InvocationContext,
                  journal: OriginatingJournal):
@@ -76,11 +67,6 @@ class LangChainTokenCounter:
         self.invocation_context: InvocationContext = invocation_context
         self.journal: OriginatingJournal = journal
         self.debug: bool = False
-
-        # Frontman has instance number = 0
-        self.instance_number = LangChainTokenCounter._instance_count
-        # Other agents have higher instance number because they were called later
-        LangChainTokenCounter._instance_count += 1
 
     async def count_tokens(self, awaitable: Awaitable) -> Any:
         """
@@ -107,17 +93,12 @@ class LangChainTokenCounter:
         # Attempt to count tokens/costs while invoking the agent.
         # The means by which this happens is on a per-LLM basis, so get the right hook
         # given the LLM we've got.
-        callback: Union[AsyncCallbackHandler, BaseCallbackHandler] = None
-
+        callback: AsyncCallbackHandler = None
         # Record origin information in our own context var so we can associate
         # with the langchain callback context vars more easily.
         origin: List[Dict[str, Any]] = self.journal.get_origin()
         origin_str: str = Origination.get_full_name_from_origin(origin)
         ORIGIN_INFO.set(origin_str)
-
-        old_callback: Union[AsyncCallbackHandler, BaseCallbackHandler] = None
-        callback_var: ContextVar = llm_token_callback_var
-        old_callback = callback_var.get()
 
         # Use the context manager to count tokens as per
         #   https://python.langchain.com/docs/how_to/llm_token_usage_tracking/#using-callbacks
@@ -128,7 +109,7 @@ class LangChainTokenCounter:
         # * As of 2/21/25, it seems that tool-calling agents (branch nodes) are not
         #   registering their tokens correctly. Not sure if this is a bug in langchain
         #   or there is something we are not doing in that scenario that we should be.
-        # * As of 8/21/25, placing the journaling callback in the invoke config
+        # * As of 8/21/25, placing the journaling callback in the invoke config instead of llm
         #   appears to change the context manager’s behavior. The returned tokens from callback
         #   are now limited to the calling agent only, and no longer include those
         #   from downstream (chained) agents. However, `cumulative_models_token_dict` is added
@@ -139,8 +120,6 @@ class LangChainTokenCounter:
             new_context: Context = copy_context()
             task: Task = new_context.run(self.create_task, awaitable)
             retval = await task
-
-        callback_var.set(old_callback)
 
         # Figure out how much time our agent took.
         end_time: float = time()
@@ -166,22 +145,13 @@ class LangChainTokenCounter:
 
         return task
 
-    async def report(self, callback: Union[AsyncCallbackHandler, BaseCallbackHandler], time_taken_in_seconds: float):
+    async def report(self, callback: AsyncCallbackHandler, time_taken_in_seconds: float):
         """
         Report on the token accounting results of the callback
 
         :param callback: An AsyncCallbackHandler or BaseCallbackHandle instance that contains token counting information
         :param time_taken_in_seconds: The amount of time the awaitable took in count_tokens()
         """
-
-        agent_name: str = ORIGIN_INFO.get().split(".")[-1]
-        # Token counting results are collected in the callback.
-        # Create a token counding dictionary for each agent
-        agent_token_dict: Dict[str, Any] = self._generate_agent_token_dict(callback, time_taken_in_seconds, agent_name)
-        if self.journal is not None:
-            # We actually have a token dictionary to report, so go there.
-            agent_message = AgentMessage(structure=agent_token_dict)
-            await self.journal.write_message(agent_message)
 
         # Accumulate what we learned about tokens to request reporting.
         # For now we just overwrite the one key because we know
@@ -191,32 +161,37 @@ class LangChainTokenCounter:
         # of some kind.  For now, get something going.
         #
         # Update (8/21/25):
-        # Placing the journaling callback in the invoke config changes the context
+        # Placing the journaling callback in the invoke config instead of llm changes the context
         # manager’s behavior. The returned tokens from the callback are now limited
         # to the calling agent only, not downstream (chained) agents.
-        # Instead, `cumulative_models_token_dict` has been added to
-        # `LlmTokenCallbackHandler` to collect per-model token stats.
+        # Instead, `models_token_dict` and `network_token_dict` have been added to
+        # `request_reporting["token_accounting"]` to collect per-model and network token stats.
         # Since the frontman is always the last to finish, by the time it exits,
-        # `cumulative_models_token_dict` is complete and ready to report.
+        # `request_reporting["token_accounting"]` is complete and ready to report.
+        request_reporting: Dict[str, Any] = self.invocation_context.get_request_reporting()
+        token_accounting: Dict[str, Any] = request_reporting.get("token_accounting", {})
+        models_token_dict: Dict[str, Any] = \
+            self._merge_dicts(token_accounting.get("models_token_dict", {}), callback.models_token_dict)
+        network_token_dict: Dict[str, Any] = self._sum_all_tokens(models_token_dict, time_taken_in_seconds)
+        request_reporting["token_accounting"] = \
+            {"network_token_dict": network_token_dict, "models_token_dict": models_token_dict}
 
-        # If instance number is zero then it is frontman
-        if self.instance_number == 0:
-            self.time_per_iter.append(time_taken_in_seconds)
-            request_reporting: Dict[str, Any] = self.invocation_context.get_request_reporting()
-            cumulative_models_token_dict: Dict[str, Any] = callback.cumulative_models_token_dict
-            self._generate_token_reporting(cumulative_models_token_dict, request_reporting)
-
-            # Copy the cumulative models token dict for subtraction in the next iteration
-            LangChainTokenCounter.previous_cumulative_models_token_dict = \
-                copy.deepcopy(callback.cumulative_models_token_dict)
-            # Reset counter for the next iteration
-            LangChainTokenCounter._instance_count = 0
+        # Token counting results are collected in the callback.
+        # Create a token counting dictionary for each agent
+        agent_token_dict: Dict[str, Any] = self._generate_agent_token_dict(callback, time_taken_in_seconds)
+        if self.journal is not None:
+            # We actually have a token dictionary to report, so go there.
+            agent_message = AgentMessage(structure=agent_token_dict)
+            await self.journal.write_message(agent_message)
+            # For frontman (origin with no ".") write network token dict
+            if "." not in ORIGIN_INFO.get():
+                network_token_message = AgentMessage(structure=network_token_dict)
+                await self.journal.write_message(network_token_message)
 
     def _generate_agent_token_dict(
             self,
             callback: Union[AsyncCallbackHandler, BaseCallbackHandler],
             time_taken_in_seconds: float,
-            agent_name: str
     ) -> Dict[str, Any]:
         """
         Generate the token counting dictionary for journals
@@ -230,77 +205,20 @@ class LangChainTokenCounter:
 
         # Organize the token dict for each agent to be the same format
         agent_token_dict = {
-            f"{agent_name}_token_accounting": {
-                "total_tokens": callback.total_tokens,
-                "prompt_tokens": callback.prompt_tokens,
-                "completion_tokens": callback.completion_tokens,
-                "successful_requests": callback.successful_requests,
-                "total_cost": callback.total_cost,
-                "time_taken_in_seconds": time_taken_in_seconds,
-                "caveats": [
-                    "Token usage is tracked at the agent level.",
-                    "Token counts are approximate and estimated using tiktoken.",
-                    "time_taken_in_seconds includes overhead from Langchain and Neuro-SAN"
-                ]
-            }
+            "total_tokens": callback.total_tokens,
+            "prompt_tokens": callback.prompt_tokens,
+            "completion_tokens": callback.completion_tokens,
+            "successful_requests": callback.successful_requests,
+            "total_cost": callback.total_cost,
+            "time_taken_in_seconds": time_taken_in_seconds,
+            "caveats": [
+                "Token usage is tracked at the agent level.",
+                "Token counts are approximate and estimated using tiktoken.",
+                "time_taken_in_seconds includes overhead from Langchain and Neuro-SAN"
+            ]
         }
 
         return agent_token_dict
-
-    def _generate_token_reporting(
-            self,
-            cumulative_models_token_dict: Dict[str, Any],
-            request_reporting: Dict[str, Any]
-    ):
-        """
-        Generate token accounting reports with cumulative and delta calculations.
-        :param cumulative_models_token_dict: Cumulative values of stats for each model
-        :param request_reporting: Dictionary to report after frontman finishes
-        """
-
-        # Calculate model token stats for this iteration
-        models_token_dict = self._calculate_models_token_dict(cumulative_models_token_dict)
-
-        # Network stats: time includes overhead from both LangChain and Neuro-SAN.
-        # Model stats: time reflects only the LLM execution.
-
-        # Report network and models token accounting
-
-        # Time for this iteration is the last one in the "time_per_iter" list
-        request_reporting["network_token_accounting"] = self._sum_all_tokens(
-            models_token_dict, self.time_per_iter[-1]
-        )
-        request_reporting["models_token_accounting"] = models_token_dict
-
-        # Report cumulative network and models token accounting
-
-        # Sum "time_per_iter" list to get cumulative time
-        request_reporting["cumulative_network_token_accounting"] = self._sum_all_tokens(
-            cumulative_models_token_dict, sum(self.time_per_iter)
-        )
-        request_reporting["cumulative_models_token_accounting"] = cumulative_models_token_dict
-
-    def _calculate_models_token_dict(self, cumulative_models_token_dict) -> Dict[str, Any]:
-        """
-        Calculate models token dict from the difference between cumulative and previous cumulative token stats.
-        :param cumulative_models_token_dict: Cumulative values of token stats for each model
-        :return: Values of token stats for each model invoked in this iteration
-        """
-        models_token_dict: Dict[str, Any] = {}
-        for provider, models in cumulative_models_token_dict.items():
-            models_token_dict[provider] = {}
-            for model, cumulative_stats in models.items():
-                one_iteration_stats = {}
-                prev_cumulative_stats = self.previous_cumulative_models_token_dict.get(provider, {}).get(model, {})
-                # Calculate value of each metric
-                for metric, cumulative_value in cumulative_stats.items():
-                    # If it is a model that doen not existing previously, set the metric to zero
-                    prev_cumulative_value = prev_cumulative_stats.get(metric, 0)
-                    one_iteration_stats[metric] = cumulative_value - prev_cumulative_value
-
-                models_token_dict[provider][model] = one_iteration_stats
-
-        return models_token_dict
 
     def _sum_all_tokens(self, token_dict: Dict[str, Any], time_value: float) -> Dict[str, Any]:
         """
@@ -319,3 +237,30 @@ class LangChainTokenCounter:
         aggregated["time_taken_in_seconds"] = time_value
 
         return aggregated
+
+    def _merge_dicts(self, dict_1, dict_2):
+        """
+        Recursively merge two dictionaries.
+
+        If both dictionaries contain the same key:
+        - If the corresponding values are dictionaries, they are merged recursively.
+        - Otherwise, the values are assumed to be numeric and are summed.
+
+        Keys that exist only in one dictionary are carried over unchanged.
+
+        :param dict_1: The base dictionary.
+        :param dict_2: The dictionary whose values will be merged into `dict_1`.
+        :return: A new dictionary containing the merged result.
+        """
+        result: Dict[str, Any] = dict(dict_1)  # start with dict_1
+        for key, value in dict_2.items():
+            if key in result:
+                if isinstance(result[key], dict) and isinstance(value, dict):
+                    # recursively merge nested dicts
+                    result[key] = self._merge_dicts(result[key], value)
+                else:
+                    # assume values are numbers, sum them
+                    result[key] += value
+            else:
+                result[key] = value
+        return result
