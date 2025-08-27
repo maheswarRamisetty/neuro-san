@@ -10,9 +10,10 @@
 #
 # END COPYRIGHT
 from typing import Any
+from typing import Callable
 from typing import Dict
 
-from asyncio import Future
+import functools
 
 from leaf_common.asyncio.asyncio_executor import AsyncioExecutor
 from leaf_common.asyncio.asyncio_executor_pool import AsyncioExecutorPool
@@ -76,13 +77,13 @@ class SessionInvocationContext(InvocationContext):
         Currently, we only start internal AsyncioExecutor.
         It could be already running, but starting it twice is allowed.
         """
+        # Wrap it up into a single function with no parameters
+        # for easier handling downstream.
+        logging_setup: Callable = functools.partial(setup_extra_logging_fields, metadata_dict=self.metadata)
         self.asyncio_executor.start()
-
-        # Set up logging fields within the thread, so we have consistent logging from async calls.
-        # Ignore the future that is returned - we trust it will get done.
-        _: Future = self.asyncio_executor.submit(
-            "logging_setup", setup_extra_logging_fields,
-            metadata_dict=self.metadata)
+        # Run logging setup as event-loop initialization step -
+        # make sure it is finished before we start to use this AsyncioExecutor instance.
+        self.asyncio_executor.initialize(logging_setup)
 
     def get_async_session_factory(self) -> AsyncAgentSessionFactory:
         """

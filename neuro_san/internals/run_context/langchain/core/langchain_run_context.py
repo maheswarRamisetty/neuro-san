@@ -535,7 +535,7 @@ class LangChainRunContext(RunContext):
                 if message is not None:
                     raise ValueError(message) from api_error
                 # Continue with regular retry logic:
-                self.logger.warning("retrying from {api_error.__class__.__name__}")
+                self.logger.warning("retrying from %s", api_error.__class__.__name__)
                 retries = retries - 1
                 exception = api_error
             except KeyError as key_error:
