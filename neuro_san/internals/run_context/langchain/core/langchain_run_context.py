@@ -70,7 +70,7 @@ from neuro_san.internals.utils.resolver_util import ResolverUtil
 
 MINUTES: float = 60.0
 
-# Lazily load any API Errors we look for
+# Lazily import specific errors from llm providers
 API_ERROR_TYPES: Tuple[Type[Any], ...] = ResolverUtil.create_type_tuple([
                                             "openai.APIError",
                                             "anthropic.APIError",

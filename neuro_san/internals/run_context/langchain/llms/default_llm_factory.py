@@ -35,6 +35,7 @@ from neuro_san.internals.utils.resolver_util import ResolverUtil as NeuroSanReso
 
 KEYS_TO_REMOVE_FOR_USER_CLASS: Set[str] = {"class", "verbose"}
 
+# Lazily import specific errors from llm providers
 API_KEY_ERRORS: Tuple[Type[Any], ...] = NeuroSanResolverUtil.create_type_tuple([
                                             "google.auth.exceptions.DefaultCredentialsError",
                                             "openai.OpenAIError",

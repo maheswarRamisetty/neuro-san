@@ -41,7 +41,7 @@ from neuro_san.message_processing.message_processor import MessageProcessor
 from neuro_san.message_processing.answer_message_processor import AnswerMessageProcessor
 from neuro_san.message_processing.structure_message_processor import StructureMessageProcessor
 
-
+# Lazily import specific errors from llm providers
 PATIENCE_ERRORS: Tuple[Type[Any], ...] = ResolverUtil.create_type_tuple([
                                             "openai.BadRequestError",
                                          ])
