@@ -14,6 +14,7 @@ from typing import Awaitable
 from typing import Dict
 from typing import List
 from typing import Tuple
+from typing import Type
 from typing import Union
 
 from asyncio import Task
@@ -30,7 +31,6 @@ from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.language_models.base import BaseLanguageModel
 
 from leaf_common.asyncio.asyncio_executor import AsyncioExecutor
-from leaf_common.config.resolver import Resolver
 
 from neuro_san.internals.interfaces.invocation_context import InvocationContext
 from neuro_san.internals.journals.originating_journal import OriginatingJournal
@@ -39,6 +39,7 @@ from neuro_san.internals.messages.origination import Origination
 from neuro_san.internals.run_context.langchain.token_counting.get_llm_token_callback import get_llm_token_callback
 from neuro_san.internals.run_context.langchain.token_counting.get_llm_token_callback import llm_token_callback_var
 from neuro_san.internals.run_context.langchain.token_counting.llm_token_callback_handler import LlmTokenCallbackHandler
+from neuro_san.internals.utils.resolver_util import ResolverUtil
 
 
 # Keep a ContextVar for the origin info.  We do this because the
@@ -56,6 +57,12 @@ class LangChainTokenCounter:
     Notes as to how each BaseLanguageModel/BaseChatModel should be configured
     are in get_callback_for_llm()
     """
+
+    # Class variable to keep a single lazy resolution of OpenAI chat model types.
+    OPENAI_CHAT_TYPES: Tuple[Type[Any], ...] = ResolverUtil.create_type_tuple({
+                                                    "langchain_openai.chat_models.base.ChatOpenAI": "",
+                                                    "langchain_openai.chat_models.azure.AzureChatOpenAI": "",
+                                                })
 
     def __init__(self, llm: BaseLanguageModel,
                  invocation_context: InvocationContext,
@@ -187,29 +194,6 @@ class LangChainTokenCounter:
             await self.journal.write_message(agent_message)
 
     @staticmethod
-    def get_openai_types() -> Tuple:
-        """
-        :return: A tuple of BaseLanguageModel classes that are OpenAI models,
-                 or None if they are not able to be resolved/loaded.
-        """
-
-        resolver: Resolver = Resolver()
-
-        # Worth noting that we let the "install this package" happen in StandardLangchainLlmFactory,
-        # as that guy gets hit first.
-        # pylint: disable=invalid-name
-        ChatOpenAI = resolver.resolve_class_in_module("ChatOpenAI",
-                                                      module_name="langchain_openai.chat_models.base")
-        if ChatOpenAI is None:
-            # No class resolved.  That's OK.
-            return None
-
-        # pylint: disable=invalid-name
-        AzureChatOpenAI = resolver.resolve_class_in_module("AzureChatOpenAI",
-                                                           module_name="langchain_openai.chat_models.azure")
-        return (ChatOpenAI, AzureChatOpenAI)
-
-    @staticmethod
     def get_callback_for_llm(llm: BaseLanguageModel) -> Any:
         """
         :param llm: A BaseLanguageModel returned from an LlmFactory.
@@ -220,8 +204,9 @@ class LangChainTokenCounter:
                 from "usage_metadata" but give "total_cost" = 0.
         """
 
-        openai_types: Tuple = LangChainTokenCounter.get_openai_types()
-        if openai_types is not None and isinstance(llm, openai_types):
+        if isinstance(llm, LangChainTokenCounter.OPENAI_CHAT_TYPES):
+            # Use the context manager to count tokens as per
+            #   https://python.langchain.com/docs/how_to/llm_token_usage_tracking/#using-callbacks
             # Notes:
             #   * ChatOpenAI needs to have stream_usage=True configured
             #     in order to get good token info back reliably.
@@ -250,8 +235,7 @@ class LangChainTokenCounter:
                 If not an OpenAI or Anthropic model, use llm_token_callback_var.
         """
 
-        openai_types: Tuple = LangChainTokenCounter.get_openai_types()
-        if openai_types is not None and isinstance(llm, openai_types):
+        if isinstance(llm, LangChainTokenCounter.OPENAI_CHAT_TYPES):
             return openai_callback_var
 
         # Collect tokens for models other than OpenAI
