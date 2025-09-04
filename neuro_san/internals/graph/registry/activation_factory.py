@@ -16,10 +16,10 @@ import os
 
 from pathlib import Path
 
-from neuro_san import TOP_LEVEL_DIR
 from leaf_common.config.dictionary_overlay import DictionaryOverlay
 from leaf_common.parsers.dictionary_extractor import DictionaryExtractor
 
+from neuro_san import TOP_LEVEL_DIR
 from neuro_san.internals.graph.activations.branch_activation import BranchActivation
 from neuro_san.internals.graph.activations.class_activation import ClassActivation
 from neuro_san.internals.graph.activations.external_activation import ExternalActivation
