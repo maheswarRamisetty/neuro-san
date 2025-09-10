@@ -142,10 +142,12 @@ class ConnectivityReporter:
             # Report the content of the tools list
             "tools": tool_list,
             # Report how the node wishes to be displayed
-            "display_as": display_as,
-            # Report any metadata about the node
-            "metadata": metadata
+            "display_as": display_as
         }
+
+        if metadata is not None:
+            # Report any metadata about the node but only if we have it
+            connectivity_dict["metadata"] = metadata
 
         # the message has the correct context about the tools listed in the content.
         reported_agents.add(agent_name)
