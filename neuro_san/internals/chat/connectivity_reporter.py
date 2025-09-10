@@ -104,6 +104,7 @@ class ConnectivityReporter:
         connectivity_list: List[Dict[str, Any]] = []
         agent_spec: Dict[str, Any] = None
         display_as: str = None
+        metadata: Dict[str, Any] = None
 
         if not ExternalAgentParsing.is_external_agent(agent_name):
 
@@ -132,13 +133,18 @@ class ConnectivityReporter:
         if display_as is None:
             display_as = self.determine_display_as(agent_spec)
 
+        if agent_spec is not None:
+            metadata = agent_spec.get("metadata")
+
         connectivity_dict: Dict[str, Any] = {
             # Report the origin as the agent itself, so any client that receives
             "origin": agent_name,
             # Report the content of the tools list
             "tools": tool_list,
             # Report how the node wishes to be displayed
-            "display_as": display_as
+            "display_as": display_as,
+            # Report any metadata about the node
+            "metadata": metadata
         }
 
         # the message has the correct context about the tools listed in the content.
