@@ -222,6 +222,13 @@ context with which it will proces input, essentially telling it what to do.
                                                  self.sly_data, tool_arguments)
 
         output: str = await callable_component.build()
+
+        # We got a list of messages back as a string. Take the last.
+        message_list: List[Dict[str, Any]] = json.loads(output)
+        message_dict: Dict[str, Any] = message_list[-1]
+        message_list = [message_dict]
+        output = json.dumps(message_list)
+
         # Even though we get a string, run it through the json stuff again to more reliably
         # escape when the output itself has JSON in it.  When messing with this, it's worth
         # testing both esp_decision_assistant and intranet_agents_with_tools.
