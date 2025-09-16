@@ -13,8 +13,6 @@ from typing import Any
 from typing import Dict
 from typing import List
 
-import json
-
 from langchain_core.messages.base import BaseMessage
 
 from leaf_common.config.dictionary_overlay import DictionaryOverlay
@@ -225,24 +223,11 @@ context with which it will proces input, essentially telling it what to do.
 
         message_list: List[BaseMessage] = await callable_component.build()
 
-        # We got a list of messages back as a string. Take the last.
-        last_message: BaseMessage = message_list[-1]
-        message_list = [{
-            "role": "assistant",
-            "content": last_message.content
-        }]
-        output: str = json.dumps(message_list)
-
-        # Even though we get a string, run it through the json stuff again to more reliably
-        # escape when the output itself has JSON in it.  When messing with this, it's worth
-        # testing both esp_decision_assistant and intranet_agents_with_tools.
-        output = json.dumps(output)
-
         # Prepare the tool output
         tool_output: Dict[str, Any] = {
             "origin": callable_component.get_origin(),
             "tool_call_id": component_tool_call.get_id(),
-            "output": output,
+            "output": message_list,
             # Add the component's sly_data to the mix.
             # External tools have separate dictionaries of redacted sly_data that need to
             # be reintegrated with the single copy that floats around the agent network.
