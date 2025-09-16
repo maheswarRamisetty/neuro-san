@@ -173,7 +173,25 @@ class BranchActivation(CallingActivation, CallableActivation):
                                                                                        tool_name,
                                                                                        sly_data,
                                                                                        tool_args)
-        message_list: List[BaseMessage] = await callable_activation.build()
+        message_list: List[BaseMessage] = []
+        try:
+            # DEF - need to integrate sly_data
+            message_list = await callable_activation.build()
+
+        except ClientConnectionError as exception:
+            # There is a case where we could give a little more help.
+            invocation_context: InvocationContext = self.run_context.get_invocation_context()
+            async_factory: AsyncAgentSessionFactory = invocation_context.get_async_session_factory()
+            if not async_factory.is_use_direct() and tool_name.startswith("/"):
+                # Special case where we can give a hint about using direct
+                raise ValueError(f"""
+Attempt to call {tool_name} as an external agent network over http failed.
+If you are getting this from the agent_cli command line, consider adding the --local_externals_direct
+flag to your invocation.
+""") from exception
+
+            # Nope. Just a regular http connection failure given the tool_name. Can't help ya.
+            raise exception
 
         # We got a list of messages back as a string. Take the last.
         message_dict: Dict[str, Any] = message_list[-1]
