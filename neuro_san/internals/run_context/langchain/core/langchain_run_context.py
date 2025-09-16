@@ -627,6 +627,12 @@ class LangChainRunContext(RunContext):
         return return_messages
 
     def parse_tool_chat_list_string(self, tool_chat_list_string: str, origin: str) -> BaseMessage:
+        """
+        Parse a tool output string into a list of messages
+        :param tool_chat_list_string: The string to parse
+        :param origin: The origin of the tool
+        :return: A list of messages representing the output from the tool.
+        """
 
         # Remove bracketing quotes from within the string
         while (tool_chat_list_string[0] == '"' and tool_chat_list_string[-1] == '"') or \
