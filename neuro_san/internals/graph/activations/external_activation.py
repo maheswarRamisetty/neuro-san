@@ -20,6 +20,9 @@ import json
 from logging import getLogger
 from logging import Logger
 
+from langchain_core.messages.ai import AIMessage
+from langchain_core.messages.base import BaseMessage
+
 from leaf_common.parsers.dictionary_extractor import DictionaryExtractor
 
 from neuro_san.interfaces.async_agent_session import AsyncAgentSession
@@ -113,13 +116,13 @@ class ExternalActivation(AbstractCallableActivation):
         return self.agent_url
 
     # pylint: disable=too-many-locals
-    async def build(self) -> str:
+    async def build(self) -> List[BaseMessage]:
         """
         Main entry point to the class.
 
-        :return: A string representing a List of messages produced during this process.
+        :return: A List of BaseMessages produced during this process.
         """
-        message_list: List[Dict[str, Any]] = []
+        message_list: List[BaseMessage] = []
 
         arguments_dict: Dict[str, Any] = {
             "tool_start": True,
@@ -186,14 +189,10 @@ class ExternalActivation(AbstractCallableActivation):
         # Eventually we will care about a fuller chat history.
 
         # Prepare the output
-        message: Dict[str, Any] = {
-            "role": "assistant",
-            "content": answer
-        }
-        message_list.append(message)
+        ai_message = AIMessage(content=answer)
+        message_list.append(ai_message)
 
-        messages_str = json.dumps(message_list)
-        return messages_str
+        return message_list
 
     def gather_input(self, agent_input: str, sly_data: Dict[str, Any]) -> Dict[str, Any]:
         """
