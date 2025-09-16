@@ -111,7 +111,7 @@ class LangChainTokenCounter:
         # * As of 8/21/25, placing the journaling callback in the invoke config instead of llm
         #   appears to change the context manager’s behavior. The returned tokens from callback
         #   are now limited to the calling agent only, and no longer include those
-        #   from downstream (chained) agents. However, `cumulative_models_token_dict` is added
+        #   from downstream (chained) agents. However, `models_token_dict` is added
         #   to the `LlmTokenCallbackHandler` to collect token stats of each model call.
         with get_llm_token_callback(llm_infos) as callback:
             # Create a new context for different ContextVar values
@@ -163,15 +163,15 @@ class LangChainTokenCounter:
         # Placing the journaling callback in the invoke config instead of llm changes the context
         # manager’s behavior. The returned tokens from the callback are now limited
         # to the calling agent only, not downstream (chained) agents.
-        # Instead, `models_token_dict` and `network_token_dict` have been added to
-        # `request_reporting["token_accounting"]` to collect per-model and network token stats.
+        # Instead, `models` have been added to `request_reporting["token_accounting"]` to collect per-model stats
+        # which are combined into network token stats.
         # Since the frontman is always the last to finish, by the time it exits,
         # `request_reporting["token_accounting"]` is complete and ready to report.
         request_reporting: Dict[str, Any] = self.invocation_context.get_request_reporting()
         token_accounting: Dict[str, Any] = request_reporting.get("token_accounting", {})
         models_token_dict: Dict[str, Any] = \
-            self._merge_dicts(token_accounting.get("models_token_dict", {}), callback.models_token_dict)
-        network_token_dict: Dict[str, Any] = self._sum_all_tokens(models_token_dict, time_taken_in_seconds)
+            self.merge_dicts(token_accounting.get("models", {}), callback.models_token_dict)
+        network_token_dict: Dict[str, Any] = self.sum_all_tokens(models_token_dict, time_taken_in_seconds)
         # Provide sligtly different "caveats" for the network token accounting.
         network_token_dict["caveats"] = [
             "Subnetwork (external agent) token usage is not included.",
@@ -225,7 +225,7 @@ class LangChainTokenCounter:
 
         return agent_token_dict
 
-    def _sum_all_tokens(self, token_dict: Dict[str, Any], time_value: float) -> Dict[str, Any]:
+    def sum_all_tokens(self, token_dict: Dict[str, Any], time_value: float) -> Dict[str, Any]:
 
         """
         Sum all token metrics across providers and models, **excluding time**.
@@ -244,7 +244,7 @@ class LangChainTokenCounter:
 
         return aggregated
 
-    def _merge_dicts(self, dict_1, dict_2):
+    def merge_dicts(self, dict_1, dict_2):
         """
         Recursively merge two dictionaries.
 
@@ -263,7 +263,7 @@ class LangChainTokenCounter:
             if key in result:
                 if isinstance(result[key], dict) and isinstance(value, dict):
                     # recursively merge nested dicts
-                    result[key] = self._merge_dicts(result[key], value)
+                    result[key] = self.merge_dicts(result[key], value)
                 else:
                     # assume values are numbers, sum them
                     result[key] += value
