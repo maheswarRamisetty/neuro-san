@@ -30,6 +30,7 @@ from neuro_san.internals.graph.activations.abstract_callable_activation import A
 from neuro_san.internals.graph.activations.branch_activation import BranchActivation
 from neuro_san.internals.graph.interfaces.agent_tool_factory import AgentToolFactory
 from neuro_san.internals.journals.journal import Journal
+from neuro_san.internals.journals.progress_journal import ProgressJournal
 from neuro_san.internals.messages.agent_message import AgentMessage
 from neuro_san.internals.messages.origination import Origination
 from neuro_san.internals.run_context.factory.run_context_factory import RunContextFactory
@@ -83,6 +84,8 @@ class AbstractClassActivation(AbstractCallableActivation):
 
         # Set some standard args so CodedTool can know about origin, but only if they are
         # not already set by other infrastructure.
+        if self.arguments.get("progress_reporter") is None:
+            self.arguments["progress_reporter"] = ProgressJournal(self.journal)
         if self.arguments.get("origin") is None:
             self.arguments["origin"] = deepcopy(self.run_context.get_origin())
         if self.arguments.get("origin_str") is None:

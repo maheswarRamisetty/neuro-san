@@ -1,0 +1,44 @@
+
+# Copyright (C) 2023-2025 Cognizant Digital Business, Evolutionary AI.
+# All Rights Reserved.
+# Issued under the Academic Public License.
+#
+# You can be released from the terms, and requirements of the Academic Public
+# License by purchasing a commercial license.
+# Purchase of a commercial license is mandatory for any use of the
+# neuro-san SDK Software in commercial settings.
+#
+# END COPYRIGHT
+
+from neuo_san.interfaces.agent_network_progress_reporter import AgentNetworkProgressReporter
+from neuo_san.internals.journals.journal import Journal
+from neuo_san.internals.messages.agent_progress_message import AgentProgressMessage
+
+
+class ProgressJournal(AgentNetworkProgressReporter):
+    """
+    An implementation of the AgentNetworkProgressReporter interface for a CodedTool to be able
+    to journal AgentProgressMessages.
+    """
+
+    def __init__(self, wrapped_journal: Journal):
+        """
+        Constructor
+
+        :param wrapped_journal: The Journal that this implementation wraps
+        """
+        self.wrapped_journal: Journal = wrapped_journal
+
+    async def async_report_progress(self, message: AgentProgressMessage):
+        """
+        Reports an AgentProgressMessage to the chat message stream returned to the client.
+        To be used from within CodedTool.async_invoke().
+
+        :param message: The AgentProgressMessage instance to write to the journal
+        """
+        if message is None:
+            return
+        if not isinstance(message, AgentProgressMessage):
+            raise ValueError(f"Expected AgentProgressMessage, got {type(message)}")
+
+        await self.wrapped_journal.write_message(message)
