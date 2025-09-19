@@ -10,9 +10,9 @@
 #
 # END COPYRIGHT
 
-from neuo_san.interfaces.agent_network_progress_reporter import AgentNetworkProgressReporter
-from neuo_san.internals.journals.journal import Journal
-from neuo_san.internals.messages.agent_progress_message import AgentProgressMessage
+from neuro_san.interfaces.agent_network_progress_reporter import AgentNetworkProgressReporter
+from neuro_san.internals.journals.journal import Journal
+from neuro_san.internals.messages.agent_progress_message import AgentProgressMessage
 
 
 class ProgressJournal(AgentNetworkProgressReporter):
