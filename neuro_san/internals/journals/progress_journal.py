@@ -12,14 +12,14 @@
 from typing import Any
 from typing import Dict
 
-from neuro_san.interfaces.agent_network_progress_reporter import AgentNetworkProgressReporter
+from neuro_san.interfaces.agent_progress_reporter import AgentProgressReporter
 from neuro_san.internals.journals.journal import Journal
 from neuro_san.internals.messages.agent_progress_message import AgentProgressMessage
 
 
-class ProgressJournal(AgentNetworkProgressReporter):
+class ProgressJournal(AgentProgressReporter):
     """
-    An implementation of the AgentNetworkProgressReporter interface for a CodedTool to be able
+    An implementation of the AgentProgressReporter interface for a CodedTool to be able
     to journal AgentProgressMessages.
     """
 

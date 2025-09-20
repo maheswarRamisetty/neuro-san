@@ -13,7 +13,7 @@ from typing import Any
 from typing import Dict
 
 
-class AgentNetworkProgressReporter:
+class AgentProgressReporter:
     """
     An interface for CodedTools to be able to report on an agent network's progress.
 

@@ -15,7 +15,7 @@ from typing import Dict
 
 from neuro_san.coded_tools.math_guy.async_closeable import AsyncCloseable
 from neuro_san.coded_tools.math_guy.sync_closeable import SyncCloseable
-from neuro_san.interfaces.agent_network_progress_reporter import AgentNetworkProgressReporter
+from neuro_san.interfaces.agent_progress_reporter import AgentProgressReporter
 from neuro_san.interfaces.coded_tool import CodedTool
 
 
@@ -72,7 +72,7 @@ class Calculator(CodedTool):
         if x is None or y is None:
             return "Need to set keys x and y in the sly_data as float operands"
 
-        progress_reporter: AgentNetworkProgressReporter = args.get("progress_reporter")
+        progress_reporter: AgentProgressReporter = args.get("progress_reporter")
         progress: Dict[str, Any] = {
             # Nothing yet.
             "progress": 0.0
