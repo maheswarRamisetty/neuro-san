@@ -40,14 +40,14 @@ class ProgressJournal(AgentNetworkProgressReporter):
                         All keys and values must be JSON-serializable.
         :param content: An optional message to send to the client
         """
-        if progress is None:
+        if structure is None:
             # Nothing to report
             return
-        if not isinstance(progress, Dict):
-            raise ValueError(f"Expected dictionary, got {type(progress)}")
+        if not isinstance(structure, Dict):
+            raise ValueError(f"Expected dictionary, got {type(structure)}")
 
         if content is None:
             content = ""
 
-        message = AgentProgressMessage(content, structure=progress)
+        message = AgentProgressMessage(content, structure=structure)
         await self.wrapped_journal.write_message(message)
