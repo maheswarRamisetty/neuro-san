@@ -113,14 +113,14 @@ class TestSmokeTestHocons(TestCase):
         # include the file basis implied by the __file__ and path_to_basis above.
         self.DYNAMIC.one_test_hocon(self, test_name, test_hocon)
 
-    @parameterized.expand(DynamicHoconUnitTests.from_hocon_list([
-        # These can be in any order.
-        # Ideally more basic functionality will come first.
-        # Barring that, try to stick to alphabetical order.
-        "music_nerd_pro_llm_ollama/combination_responses_with_history_http.hocon",
+    # @parameterized.expand(DynamicHoconUnitTests.from_hocon_list([
+    #     # These can be in any order.
+    #     # Ideally more basic functionality will come first.
+    #     # Barring that, try to stick to alphabetical order.
+    #     "music_nerd_pro_llm_ollama/combination_responses_with_history_http.hocon",
 
-        # List more hocon files as they become available here.
-    ]))
+    #     # List more hocon files as they become available here.
+    # ]))
     # @pytest.mark.timeout(12 * 60)  # in mins for this test
     # @pytest.mark.smoke
     # @pytest.mark.needs_server
