@@ -17,6 +17,9 @@
     # Describes what agent to test against.
     "agent": "mcp_deepwiki_dict",
 
+    # Needs to succeed N times out of M
+    "success_ratio": "1/2",
+
     # Interactions are a series of dictionaries with request elements paired with
     # descriptions of response checks.
     "interactions": [
