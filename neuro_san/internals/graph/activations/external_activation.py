@@ -96,17 +96,17 @@ class ExternalActivation(AbstractCallableActivation):
             raw_reporting = extractor.get(key, raw_reporting)
 
         # Should we be reporting external messages?
-        report: bool = False
+        self.report: bool = False
         if isinstance(raw_reporting, bool):
-            report = bool(raw_reporting)
+            self.report = bool(raw_reporting)
         elif isinstance(raw_reporting, str):
-            report = self.agent_url == raw_reporting
+            self.report = self.agent_url == raw_reporting
         elif isinstance(raw_reporting, List):
-            report = self.agent_url in raw_reporting
+            self.report = self.agent_url in raw_reporting
         elif isinstance(raw_reporting, Dict):
-            report = bool(raw_reporting.get(self.agent_url))
+            self.report = bool(raw_reporting.get(self.agent_url))
 
-        if report:
+        if self.report:
             self.processor.add_processor(ExternalMessageProcessor(self.journal))
 
     def get_name(self) -> str:
@@ -192,6 +192,8 @@ class ExternalActivation(AbstractCallableActivation):
         # Eventually we will care about a fuller chat history.
 
         # Prepare the output
+        if answer is None:
+            answer = ""
         ai_message = AIMessage(content=answer)
         message_list.append(ai_message)
 
@@ -217,10 +219,14 @@ class ExternalActivation(AbstractCallableActivation):
             # Recall that non-empty dictionaries evaluate to True
             chat_request["chat_context"] = self.chat_context
 
-        # At some point in the future we might want to block all
-        # or parts of the sly_data from going to external agents.
+        # We assume that the sly_data coming in has already been redacted
         if sly_data is not None and len(sly_data.keys()) > 0:
             chat_request["sly_data"] = sly_data
+
+        if self.report:
+            chat_request["chat_filter"] = {
+                "chat_filter_type": "MAXIMAL"
+            }
 
         return chat_request
 
