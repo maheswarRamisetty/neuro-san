@@ -13,7 +13,6 @@
 from typing import Any
 from typing import Dict
 
-from os import path
 from pathlib import Path
 
 import json
@@ -25,6 +24,8 @@ from leaf_common.config.config_filter_chain import ConfigFilterChain
 from leaf_common.persistence.easy.easy_hocon_persistence import EasyHoconPersistence
 from leaf_common.persistence.interface.restorer import Restorer
 
+from neuro_san.interfaces.agent_name_mapper import AgentNameMapper
+from neuro_san.internals.graph.persistence.agent_filetree_mapper import AgentFileTreeMapper
 from neuro_san.internals.graph.filters.defaults_config_filter import DefaultsConfigFilter
 from neuro_san.internals.graph.filters.dictionary_common_defs_config_filter \
     import DictionaryCommonDefsConfigFilter
@@ -40,7 +41,7 @@ class AgentNetworkRestorer(Restorer):
     instance given a JSON file name.
     """
 
-    def __init__(self, registry_dir: str = None):
+    def __init__(self, registry_dir: str = None, agent_mapper: AgentNameMapper = None):
         """
         Constructor
 
@@ -49,6 +50,9 @@ class AgentNetworkRestorer(Restorer):
                     If None, there are no limits, but paths must be absolute
         """
         self.registry_dir: str = registry_dir
+        self.agent_mapper = agent_mapper
+        if not self.agent_mapper:
+            self.agent_mapper = AgentFileTreeMapper()
 
     def restore(self, file_reference: str = None):
         """
@@ -64,7 +68,7 @@ class AgentNetworkRestorer(Restorer):
 
         use_file: str = file_reference
         if self.registry_dir is not None:
-            use_file = path.join(self.registry_dir, file_reference)
+            use_file = str(Path(self.registry_dir) / file_reference)
 
         try:
             if use_file.endswith(".json"):
@@ -88,7 +92,10 @@ syntactically incorrect in that file.
         #           this source base. CheckMarx does not recognize
         #           the calls to Pathlib/__file__ as a valid means to resolve
         #           these kinds of issues.
-        name = Path(use_file).stem
+        name = self.agent_mapper.filepath_to_agent_network_name(file_reference)
+
+        print(f">>>>>>>>>>>>>>>>>>>AGENT: {name}")
+
         agent_network: AgentNetwork = self.restore_from_config(name, config)
         return agent_network
 

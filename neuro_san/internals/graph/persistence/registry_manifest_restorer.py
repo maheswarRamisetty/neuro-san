@@ -28,6 +28,8 @@ from leaf_common.persistence.easy.easy_hocon_persistence import EasyHoconPersist
 from leaf_common.persistence.interface.restorer import Restorer
 
 from neuro_san import REGISTRIES_DIR
+from neuro_san.interfaces.agent_name_mapper import AgentNameMapper
+from neuro_san.internals.graph.persistence.agent_filetree_mapper import AgentFileTreeMapper
 from neuro_san.internals.graph.persistence.agent_network_restorer import AgentNetworkRestorer
 from neuro_san.internals.graph.registry.agent_network import AgentNetwork
 
@@ -38,7 +40,7 @@ class RegistryManifestRestorer(Restorer):
     for agent networks/registries.
     """
 
-    def __init__(self, manifest_files: Union[str, List[str]] = None):
+    def __init__(self, manifest_files: Union[str, List[str]] = None, agent_mapper: AgentNameMapper = None):
         """
         Constructor
 
@@ -47,6 +49,10 @@ class RegistryManifestRestorer(Restorer):
             * A list of local names for multiple manifest files to host
             * None (the default) which gets a single manifest file from a known source.
         """
+        self.agent_mapper = agent_mapper
+        if not self.agent_mapper:
+            self.agent_mapper = AgentFileTreeMapper()
+
         self.manifest_files: List[str] = []
 
         if manifest_files is None:
@@ -118,23 +124,27 @@ your current working directory (pwd).
                 raise FileNotFoundError(message)
 
             for key, value in one_manifest.items():
+                if not bool(value):
+                    # Fast out
+                    continue
 
+                # Key here is an agent name in a form that we chose,
+                # and we'll need to use an agent mapper to get to this agent definition file.
                 # Keys sometimes come with quotes.
                 use_key: str = key.replace(r'"', "")
-
-                if not bool(value):
-                    continue
+                use_key = use_key.strip()
+                agent_filepath: str = self.agent_mapper.agent_name_to_filepath(use_key)
 
                 file_of_class = FileOfClass(manifest_file)
                 manifest_dir: str = file_of_class.get_basis()
                 registry_restorer = AgentNetworkRestorer(manifest_dir)
                 try:
-                    agent_network: AgentNetwork = registry_restorer.restore(file_reference=use_key)
+                    agent_network: AgentNetwork = registry_restorer.restore(file_reference=agent_filepath)
                 except FileNotFoundError as exc:
                     self.logger.error("Failed to restore registry item %s - %s", use_key, str(exc))
                     agent_network = None
                 if agent_network is not None:
-                    network_name: str = Path(use_key).stem
+                    network_name: str = self.agent_mapper.filepath_to_agent_network_name(agent_filepath)
                     agent_networks[network_name] = agent_network
                 else:
                     self.logger.error("manifest registry %s not found in %s", use_key, manifest_file)
