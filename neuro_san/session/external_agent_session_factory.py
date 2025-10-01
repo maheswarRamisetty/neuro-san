@@ -53,9 +53,6 @@ class ExternalAgentSessionFactory(AsyncAgentSessionFactory):
         """
 
         agent_location: Dict[str, str] = ExternalAgentParsing.parse_external_agent(agent_url)
-
-        print(f"Parsed external agent url '{agent_url}' to location {agent_location}")
-
         session: AsyncAgentSession = self.create_session_from_location_dict(agent_location, invocation_context)
         return session
 
@@ -70,9 +67,6 @@ class ExternalAgentSessionFactory(AsyncAgentSessionFactory):
         """
         if agent_location is None:
             return None
-
-        print(f"Creating AsyncAgentSession for external agent at location {agent_location}")
-
         # Create the session.
         host = agent_location.get("host")
         port = agent_location.get("port")
@@ -94,8 +88,6 @@ class ExternalAgentSessionFactory(AsyncAgentSessionFactory):
             agent_network: AgentNetwork = agent_network_provider.get_agent_network()
             safe_invocation_context: InvocationContext = invocation_context.safe_shallow_copy()
             session = AsyncDirectAgentSession(agent_network, safe_invocation_context, metadata=metadata)
-
-            print(f"Created AsyncDirectAgentSession for external agent '{agent_name}' {session}")
 
         if session is None:
             # When creating a session for external agents, specifically use None for the

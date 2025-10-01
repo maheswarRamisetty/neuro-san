@@ -125,7 +125,6 @@ class AbstractClassActivation(AbstractCallableActivation):
 
         # Resolve the class and the method
         this_agent_tool_path: str = self.factory.get_agent_tool_path()
-
         packages: List[str] = [this_agent_tool_path]
         resolver: Resolver = Resolver(packages)
 
