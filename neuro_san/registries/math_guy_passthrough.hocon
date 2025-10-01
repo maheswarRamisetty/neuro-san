@@ -57,7 +57,7 @@ Return verbatim whatever it returns.
 """,
             # Call the math_guy as an "external tool". Tools that are prefixed
             # with a slash "/" are expected to reside as agents on the same server.
-            "tools": ["/deep/math_guy"],
+            "tools": ["/math_guy"],
 
             # The allow block below lets us deviate from the standard security policy.
             # This policy is one of securtiy-by-default, whereby no sly_data gets out
@@ -75,7 +75,7 @@ Return verbatim whatever it returns.
 
                     # Allow all messages sent from specific downstream agents to be reported
                     # as if they came back from this agent network
-                    "messages": ["/deep/math_guy"]
+                    "messages": ["/math_guy"]
                 },
                 "to_upstream": {
                     # Specifying this allows sly_data keys from this network to be passed back

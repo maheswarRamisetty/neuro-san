@@ -189,8 +189,6 @@ class ServerMainLoop(ServerLoopCallbacks):
 
         self.agent_networks = manifest_agent_networks
 
-        print(f"^^^^^^^^^^^^^^^^^^^^ {self.agent_networks.keys()}")
-
     def _get_default_openapi_spec_path(self) -> str:
         """
         Return a file path to default location of OpenAPI specification file
