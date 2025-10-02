@@ -24,7 +24,7 @@ from leaf_common.config.config_filter_chain import ConfigFilterChain
 from leaf_common.persistence.easy.easy_hocon_persistence import EasyHoconPersistence
 from leaf_common.persistence.interface.restorer import Restorer
 
-from neuro_san.interfaces.agent_name_mapper import AgentNameMapper
+from neuro_san.internals.interfaces.agent_name_mapper import AgentNameMapper
 from neuro_san.internals.graph.persistence.agent_filetree_mapper import AgentFileTreeMapper
 from neuro_san.internals.graph.persistence.agent_standalone_mapper import AgentStandaloneMapper
 from neuro_san.internals.graph.filters.defaults_config_filter import DefaultsConfigFilter

@@ -27,7 +27,7 @@ from leaf_common.persistence.easy.easy_hocon_persistence import EasyHoconPersist
 from leaf_common.persistence.interface.restorer import Restorer
 
 from neuro_san import REGISTRIES_DIR
-from neuro_san.interfaces.agent_name_mapper import AgentNameMapper
+from neuro_san.internals.interfaces.agent_name_mapper import AgentNameMapper
 from neuro_san.internals.graph.persistence.agent_filetree_mapper import AgentFileTreeMapper
 from neuro_san.internals.graph.persistence.agent_network_restorer import AgentNetworkRestorer
 from neuro_san.internals.graph.registry.agent_network import AgentNetwork

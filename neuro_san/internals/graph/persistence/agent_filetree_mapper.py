@@ -11,7 +11,7 @@
 # END COPYRIGHT
 from pathlib import Path
 
-from neuro_san.interfaces.agent_name_mapper import AgentNameMapper
+from neuro_san.internals.interfaces.agent_name_mapper import AgentNameMapper
 
 
 class AgentFileTreeMapper(AgentNameMapper):
