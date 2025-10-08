@@ -10,11 +10,17 @@
 #
 # END COPYRIGHT
 
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Optional
 
+import copy
+import threading
+
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from neuro_san.internals.run_context.langchain.mcp.mcp_clients_info_restorer import McpClientsInfoRestorer
 
 
 class LangChainMcpAdapter:
@@ -22,6 +28,23 @@ class LangChainMcpAdapter:
     Adapter class to fetch tools from a Multi-Client Protocol (MCP) server and return them as
     LangChain-compatible tools. This class provides static methods for interacting with MCP servers.
     """
+
+    # Cached MCP clients info to avoid repeated file reads
+    _mcp_info_lock: threading.Lock = threading.Lock()
+    _mcp_clients_info: Dict[str, Any] = None
+
+    @staticmethod
+    def _load_mcp_clients_info():
+        """
+        Loads MCP clients information from a configuration file if not already loaded.
+        """
+        with LangChainMcpAdapter._mcp_info_lock:
+            if LangChainMcpAdapter._mcp_clients_info is None:
+                LangChainMcpAdapter._mcp_clients_info = McpClientsInfoRestorer().restore()
+                if LangChainMcpAdapter._mcp_clients_info is None:
+                    # Something went wrong reading the file.
+                    # Prevent further attempts to load info.
+                    LangChainMcpAdapter._mcp_clients_info = {}
 
     @staticmethod
     async def get_mcp_tools(
@@ -37,17 +60,21 @@ class LangChainMcpAdapter:
 
         :return: A list of LangChain BaseTool instances retrieved from the MCP server.
         """
+        if LangChainMcpAdapter._mcp_clients_info is None:
+            LangChainMcpAdapter._load_mcp_clients_info()
+
+        mcp_tool_dict: Dict[str, Any] = {
+            "url": server_url,
+            "transport": "streamable_http",
+        }
+        # Try to look up authentication details from the URL
+        headers_dict: Dict[str, Any] =\
+            LangChainMcpAdapter._mcp_clients_info.get(server_url, {}).get("headers")
+        if headers_dict:
+            mcp_tool_dict["headers"] = copy.copy(headers_dict)
 
         client = MultiServerMCPClient(
-            {
-                "mcp_tool": {
-                    "url": server_url,
-                    "transport": "streamable_http",
-                    # As of 09/22/2025, Neuro-SAN does not support passing authentication
-                    # details (e.g., tokens) through the HOCON interface.
-                    # In the future, these details will be provided in the "headers" key here.
-                }
-            }
+            {"server": mcp_tool_dict}
         )
 
         # The get_tools() method returns a list of StructuredTool instances, which are subclasses of BaseTool.
@@ -60,12 +87,16 @@ class LangChainMcpAdapter:
         mcp_tools: List[BaseTool] = await client.get_tools()
 
         # If allowed_tools is provided, filter the list to include only those tools.
-        if allowed_tools:
-            mcp_tools = [tool for tool in mcp_tools if tool.name in allowed_tools]
+        client_allowed_tools: List[str] = allowed_tools
+        if client_allowed_tools is None:
+            # Check if MCP client info has a "tools" field to use as allowed tools.
+            client_allowed_tools = LangChainMcpAdapter._mcp_clients_info.get("tools")
+        if client_allowed_tools:
+            mcp_tools = [tool for tool in mcp_tools if tool.name in client_allowed_tools]
 
         for tool in mcp_tools:
             # Add "langchain_tool" tags so journal callback can idenitify it.
-            # Thus MCP tools are treated as Langchain tools and can be reported in the thinking file.
+            # These MCP tools are treated as Langchain tools and can be reported in the thinking file.
             tool.tags = ["langchain_tool"]
 
         return mcp_tools
