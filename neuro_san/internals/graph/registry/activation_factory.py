@@ -105,9 +105,9 @@ Check to be sure your value for PYTHONPATH includes where you expect where your 
         if not agent_tool_path.endswith(self.agent_network.get_network_name()):
             agent_tool_path = f"{agent_tool_path}.{self.agent_network.get_network_name()}"
 
-        # Now, agent network name itself can contain "os.sep" symbols
+        # Now, agent network name itself can contain "/" symbols (regardless of underlying OS)
         # in case of hierarchical agents structure. Replace those too.
-        agent_tool_path = agent_tool_path.replace(os.sep, ".")
+        agent_tool_path = agent_tool_path.replace("/", ".")
         return agent_tool_path
 
     def get_agent_tool_path(self) -> str:
