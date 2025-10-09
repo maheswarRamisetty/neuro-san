@@ -15,6 +15,7 @@ from neuro_san.internals.interfaces.agent_network_validator import AgentNetworkV
 from neuro_san.internals.validation.composite_network_validator import CompositeNetworkValidator
 from neuro_san.internals.validation.keyword_network_validator import KeywordNetworkValidator
 from neuro_san.internals.validation.structure_network_validator import StructureNetworkValidator
+from neuro_san.internals.validation.tool_name_network_validator import ToolNameNetworkValidator
 from neuro_san.internals.validation.url_network_validator import UrlNetworkValidator
 
 
@@ -34,6 +35,8 @@ class ManifestNetworkValidator(CompositeNetworkValidator):
         validators: List[AgentNetworkValidator] = [
             KeywordNetworkValidator(),
             StructureNetworkValidator(cyclical_agents_ok=True),
+            # No ToolBoxNetworkValidator yet.
+            ToolNameNetworkValidator(),
             UrlNetworkValidator(external_network_names, mcp_servers),
         ]
         super().__init__(validators)
