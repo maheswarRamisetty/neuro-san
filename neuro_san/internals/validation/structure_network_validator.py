@@ -48,6 +48,14 @@ class StructureNetworkValidator(AgentNetworkValidator):
 
         self.logger.info("Validating agent network structure...")
 
+        if agent_network is None:
+            errors.append("Agent network is empty.")
+            return errors
+
+        # We can validate either from a top-level agent network,
+        # or from the list of tools from the agent spec.
+        agent_network = agent_network.get("tools", agent_network)
+
         # Find top agents
         top_agents: Set[str] = self.find_all_top_agents(agent_network)
 

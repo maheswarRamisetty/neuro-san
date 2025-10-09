@@ -44,6 +44,14 @@ class UrlNetworkValidator(AgentNetworkValidator):
         """
         errors: List[str] = []
 
+        if agent_network is None:
+            errors.append("Agent network is empty.")
+            return errors
+
+        # We can validate either from a top-level agent network,
+        # or from the list of tools from the agent spec.
+        agent_network = agent_network.get("tools", agent_network)
+
         # Compile list of urls to check
         urls: List[str] = []
         if self.subnetworks is not None:

@@ -45,6 +45,14 @@ class ToolboxNetworkValidator(AgentNetworkValidator):
 
         self.logger.info("Validating toolbox agents...")
 
+        if agent_network is None:
+            errors.append("Agent network is empty.")
+            return errors
+
+        # We can validate either from a top-level agent network,
+        # or from the list of tools from the agent spec.
+        agent_network = agent_network.get("tools", agent_network)
+
         for agent_name, agent in agent_network.items():
             if agent.get("instructions") is None:  # This is a toolbox agent
                 if self.tools is None or not isinstance(self.tools, Dict):

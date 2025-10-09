@@ -42,6 +42,14 @@ class KeywordNetworkValidator(AgentNetworkValidator):
 
         self.logger.info("Validating agent network keywords...")
 
+        if agent_network is None:
+            errors.append("Agent network is empty.")
+            return errors
+
+        # We can validate either from a top-level agent network,
+        # or from the list of tools from the agent spec.
+        agent_network = agent_network.get("tools", agent_network)
+
         # Currently, only required "instructions" for non-function agents.
         for agent_name, agent in agent_network.items():
             if agent.get("instructions") == "":
