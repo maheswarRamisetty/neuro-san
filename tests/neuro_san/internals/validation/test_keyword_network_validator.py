@@ -59,3 +59,21 @@ class TestJsonStructureParser(TestCase):
 
         errors: List[str] = validator.validate(config)
         self.assertEqual(0, len(errors))
+
+    def test_no_instructions(self):
+        """
+        Tests a network where at least one of the nodes does not have instructions
+        """
+        validator = KeywordNetworkValidator()
+
+        # Open a known good network file
+        restorer = AgentNetworkRestorer()
+        hocon_file: str = REGISTRIES_DIR.get_file_in_basis("hello_world.hocon")
+        agent_network: AgentNetwork = restorer.restore(file_reference=hocon_file)
+        config: Dict[str, Any] = agent_network.get_config()
+
+        # Invalidate per the test
+        config["tools"][0]["instructions"] = ""  
+
+        errors: List[str] = validator.validate(config)
+        self.assertEqual(1, len(errors))
