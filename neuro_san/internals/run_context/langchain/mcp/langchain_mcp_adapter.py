@@ -29,25 +29,27 @@ class LangChainMcpAdapter:
     LangChain-compatible tools. This class provides static methods for interacting with MCP servers.
     """
 
+    _mcp_info_lock: threading.Lock = threading.Lock()
+    _mcp_clients_info: Dict[str, Any] = None
+
     def __init__(self):
         """
         Constructor
         """
         self.client_allowed_tools: List[str] = []
-        self._mcp_info_lock: threading.Lock = threading.Lock()
-        self._mcp_clients_info: Dict[str, Any] = None
 
-    def _load_mcp_clients_info(self):
+    @staticmethod
+    def _load_mcp_clients_info():
         """
         Loads MCP clients information from a configuration file if not already loaded.
         """
-        with self._mcp_info_lock:
-            if self._mcp_clients_info is None:
-                self._mcp_clients_info = McpClientsInfoRestorer().restore()
-                if self._mcp_clients_info is None:
+        with LangChainMcpAdapter._mcp_info_lock:
+            if LangChainMcpAdapter._mcp_clients_info is None:
+                LangChainMcpAdapter._mcp_clients_info = McpClientsInfoRestorer().restore()
+                if LangChainMcpAdapter._mcp_clients_info is None:
                     # Something went wrong reading the file.
                     # Prevent further attempts to load info.
-                    self._mcp_clients_info = {}
+                    LangChainMcpAdapter._mcp_clients_info = {}
 
     async def get_mcp_tools(
             self,
