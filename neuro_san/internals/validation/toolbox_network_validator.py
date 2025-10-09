@@ -38,7 +38,7 @@ class ToolboxNetworkValidator(AgentNetworkValidator):
         """
         Validation the agent network.
 
-        :param agent_network: The agent network to validate
+        :param agent_network: The agent network or name -> spec dictionary to validate
         :return: List of errors indicating agents and missing keywords
         """
         errors: List[str] = []
@@ -51,9 +51,9 @@ class ToolboxNetworkValidator(AgentNetworkValidator):
 
         # We can validate either from a top-level agent network,
         # or from the list of tools from the agent spec.
-        agent_network = agent_network.get("tools", agent_network)
+        name_to_spec: Dict[str, Any] = self.get_name_to_spec(agent_network)
 
-        for agent_name, agent in agent_network.items():
+        for agent_name, agent in name_to_spec.items():
             if agent.get("instructions") is None:  # This is a toolbox agent
                 if self.tools is None or not isinstance(self.tools, Dict):
                     errors.append(f"Toolbox is unavailable. Cannot create Toolbox agent '{agent_name}'.")

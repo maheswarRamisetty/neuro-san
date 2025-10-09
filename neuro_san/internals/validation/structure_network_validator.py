@@ -41,7 +41,7 @@ class StructureNetworkValidator(AgentNetworkValidator):
         """
         Comprehensive validation of the agent network structure.
 
-        :param agent_network: The agent network to validate
+        :param agent_network: The agent network or name -> spec dictionary to validate
         :return: List of any issues found.
         """
         errors: List[str] = []
@@ -54,10 +54,10 @@ class StructureNetworkValidator(AgentNetworkValidator):
 
         # We can validate either from a top-level agent network,
         # or from the list of tools from the agent spec.
-        agent_network = agent_network.get("tools", agent_network)
+        name_to_spec: Dict[str, Any] = self.get_name_to_spec(agent_network)
 
         # Find top agents
-        top_agents: Set[str] = self.find_all_top_agents(agent_network)
+        top_agents: Set[str] = self.find_all_top_agents(name_to_spec)
 
         if len(top_agents) == 0:
             errors.append("No top agent found in network")
@@ -65,7 +65,7 @@ class StructureNetworkValidator(AgentNetworkValidator):
             errors.append(f"Multiple top agents found: {sorted(top_agents)}. Expected exactly one.")
 
         # Find cyclical agents
-        cyclical_agents: Set[str] = self.find_cyclical_agents(agent_network)
+        cyclical_agents: Set[str] = self.find_cyclical_agents(name_to_spec)
         if cyclical_agents:
             errors.append(f"Cyclical dependencies found in agents: {sorted(cyclical_agents)}")
 
@@ -73,12 +73,12 @@ class StructureNetworkValidator(AgentNetworkValidator):
         unreachable_agents: Set[str] = set()
         if len(top_agents) == 1:
             top_agent: str = next(iter(top_agents))
-            unreachable_agents = self.find_unreachable_agents(agent_network, top_agent)
+            unreachable_agents = self.find_unreachable_agents(name_to_spec, top_agent)
             if unreachable_agents:
                 errors.append(f"Unreachable agents found: {sorted(unreachable_agents)}")
 
         # Validate that agent tools have corresponding nodes
-        missing_nodes: Dict[str, List[str]] = self.find_missing_agent_nodes(agent_network)
+        missing_nodes: Dict[str, List[str]] = self.find_missing_agent_nodes(name_to_spec)
         if missing_nodes:
             for agent, missing_tools in missing_nodes.items():
                 # Format the comma-separated list of missing tools
@@ -93,17 +93,17 @@ class StructureNetworkValidator(AgentNetworkValidator):
 
         return errors
 
-    def find_all_top_agents(self, agent_network: Dict[str, Any]) -> Set[str]:
+    def find_all_top_agents(self, name_to_spec: Dict[str, Any]) -> Set[str]:
         """
         Find all top agents - agents that have down-chains but are not down-chains of others.
 
-        :param agent_network: The agent network to validate
+        :param name_to_spec: The agent network to validate
         :return: Set of top agent names
         """
         as_down_chains: Set[str] = set()
         has_down_chains: Set[str] = set()
 
-        for agent_name, agent_config in agent_network.items():
+        for agent_name, agent_config in name_to_spec.items():
             down_chains: List[str] = agent_config.get("tools", [])
             if down_chains:
                 has_down_chains.add(agent_name)
@@ -111,16 +111,16 @@ class StructureNetworkValidator(AgentNetworkValidator):
 
         return has_down_chains - as_down_chains
 
-    def find_cyclical_agents(self, agent_network: Dict[str, Any]) -> Set[str]:
+    def find_cyclical_agents(self, name_to_spec: Dict[str, Any]) -> Set[str]:
         """
         Find agents that are part of cyclical dependencies using DFS.
 
-        :param agent_network: The agent network to validate
+        :param name_to_spec: The agent network to validate
         :return: Set of agent names that are part of cycles
         """
         # Step 1: Initialize state tracking for all agents
         state: Dict[str, int] = {}
-        for agent in agent_network.keys():
+        for agent in name_to_spec.keys():
             state[agent] = self.UNVISITED
 
         # Step 2: Set to collect all agents that are part of cycles
@@ -128,21 +128,21 @@ class StructureNetworkValidator(AgentNetworkValidator):
 
         # Step 3: Start DFS from each unvisited agent to ensure we check all components
         # (the network might have disconnected parts)
-        for agent in agent_network.keys():
+        for agent in name_to_spec.keys():
             if state[agent] == self.UNVISITED:  # Only start DFS from unvisited agents
                 # Start DFS with empty path - this agent is the root of this search
-                self.dfs_cycle_detection(agent_network, agent, [], state, cyclical_agents)
+                self.dfs_cycle_detection(name_to_spec, agent, [], state, cyclical_agents)
 
         # Step 4: Return all agents that were found to be part of cycles
         return cyclical_agents
 
     # pylint: disable=too-many-arguments, too-many-positional-arguments
-    def dfs_cycle_detection(self, agent_network: Dict[str, Any], agent: str,
+    def dfs_cycle_detection(self, name_to_spec: Dict[str, Any], agent: str,
                             path: List[str], state: Dict[str, int], cyclical_agents: Set[str]):
         """
         Perform Depth-First Search (DFS) traversal to detect cycles starting from a specific agent.
 
-        :param agent_network: The agent network to validate
+        :param name_to_spec: The agent network to validate
         :param agent: Current agent being visited
         :param path: Current path from start to current agent (for cycle identification)
         :param state: Dictionary tracking visit state of all agents
@@ -167,13 +167,13 @@ class StructureNetworkValidator(AgentNetworkValidator):
         path.append(agent)
 
         # Step 5: Get all child agents (down_chains) of current agent
-        down_chains: List[str] = agent_network.get(agent, {}).get("tools", [])
+        down_chains: List[str] = name_to_spec.get(agent, {}).get("tools", [])
 
         # Step 6: Recursively visit each child agent
         for child_agent in down_chains:
             # Only visit child if it exists in our network (safety check)
-            if child_agent in agent_network:
-                self.dfs_cycle_detection(agent_network, child_agent, path, state, cyclical_agents)
+            if child_agent in name_to_spec:
+                self.dfs_cycle_detection(name_to_spec, child_agent, path, state, cyclical_agents)
 
         # Step 7: Backtrack - remove current agent from path as we're done processing it
         path.pop()
@@ -181,11 +181,11 @@ class StructureNetworkValidator(AgentNetworkValidator):
         # Step 8: Mark agent as fully processed (all its descendants have been explored)
         state[agent] = self.FULLY_PROCESSED
 
-    def find_unreachable_agents(self, agent_network: Dict[str, Any], top_agent: str) -> Set[str]:
+    def find_unreachable_agents(self, name_to_spec: Dict[str, Any], top_agent: str) -> Set[str]:
         """
         Find agents that are unreachable from the top agent using Depth-First Search (DFS) traversal.
 
-        :param agent_network: The agent network to validate
+        :param name_to_spec: The agent network to validate
         :param top_agent: The single top agent to start from
         :return: Set of unreachable agent names
         """
@@ -196,10 +196,10 @@ class StructureNetworkValidator(AgentNetworkValidator):
         visited: Set[str] = set()
 
         # Step 3: Start DFS traversal from the top agent to find all reachable agents
-        self.dfs_reachability_traversal(agent_network, top_agent, visited, reachable_agents)
+        self.dfs_reachability_traversal(name_to_spec, top_agent, visited, reachable_agents)
 
         # Step 4: Get complete set of all agents in the network
-        all_agents: Set[str] = set(agent_network.keys())
+        all_agents: Set[str] = set(name_to_spec.keys())
 
         # Step 5: Calculate unreachable agents by subtracting reachable from all agents
         unreachable_agents: Set[str] = all_agents - reachable_agents
@@ -207,18 +207,18 @@ class StructureNetworkValidator(AgentNetworkValidator):
         # Step 6: Return the set of agents that cannot be reached from top agent
         return unreachable_agents
 
-    def dfs_reachability_traversal(self, agent_network: Dict[str, Any], agent: str,
+    def dfs_reachability_traversal(self, name_to_spec: Dict[str, Any], agent: str,
                                    visited: Set[str], reachable_agents: Set[str]):
         """
         Perform DFS traversal to find all agents reachable from a specific starting agent.
 
-        :param agent_network: The agent network to validate
+        :param name_to_spec: The agent network to validate
         :param agent: Current agent being visited
         :param visited: Set of agents already visited in this traversal (prevents infinite loops)
         :param reachable_agents: Set to collect all agents that can be reached
         """
         # Step 1: Check if we've already visited this agent or if it doesn't exist in network
-        if agent in visited or agent not in agent_network:
+        if agent in visited or agent not in name_to_spec:
             return  # Skip already visited agents or non-existent agents
 
         # Step 2: Mark current agent as visited to prevent revisiting
@@ -228,27 +228,27 @@ class StructureNetworkValidator(AgentNetworkValidator):
         reachable_agents.add(agent)
 
         # Step 4: Get all child agents (down_chains) of current agent
-        down_chains: List[str] = agent_network.get(agent, {}).get("tools", [])
+        down_chains: List[str] = name_to_spec.get(agent, {}).get("tools", [])
 
         # Step 5: Recursively visit each child agent to continue the traversal
         for child_agent in down_chains:
             # Skip URL/path tools - they're not agents
             if not self.is_url_or_path(child_agent):
                 # Visit each child - the recursion will handle visited check and network existence
-                self.dfs_reachability_traversal(agent_network, child_agent, visited, reachable_agents)
+                self.dfs_reachability_traversal(name_to_spec, child_agent, visited, reachable_agents)
 
-    def find_missing_agent_nodes(self, agent_network: Dict[str, Any]) -> Dict[str, List[str]]:
+    def find_missing_agent_nodes(self, name_to_spec: Dict[str, Any]) -> Dict[str, List[str]]:
         """
         Find agents referenced in "tools" lists that don't have corresponding nodes in the network.
 
-        :param agent_network: The agent network to validate
+        :param name_to_spec: The agent network to validate
         :return: Dictionary mapping agent names to list of tools that reference non-existent agents
                 Format: {agent_name: [missing_tool1, missing_tool2, ...]}
         """
         missing_nodes: Dict[str, List[str]] = {}
 
         # Iterate through all agents in the network
-        for agent_name, agent_data in agent_network.items():
+        for agent_name, agent_data in name_to_spec.items():
 
             tools: List[str] = agent_data.get("tools", [])
 
@@ -259,22 +259,22 @@ class StructureNetworkValidator(AgentNetworkValidator):
                     continue
 
                 # If tool is an agent reference but has no node in network, it's invalid
-                if tool not in agent_network:
+                if tool not in name_to_spec:
                     if agent_name not in missing_nodes:
                         missing_nodes[agent_name] = []
                     missing_nodes[agent_name].append(tool)
 
         return missing_nodes
 
-    def get_top_agent(self, agent_network: Dict[str, Any]) -> str:
+    def get_top_agent(self, name_to_spec: Dict[str, Any]) -> str:
         """
         Get the single top agent from a valid network.
 
-        :param agent_network: The agent network to validate
+        :param name_to_spec: The agent network to validate
         :return: Name of the top agent
         :raises ValueError: If network doesn't have exactly one top agent
         """
-        top_agents: Set[str] = self.find_all_top_agents(agent_network)
+        top_agents: Set[str] = self.find_all_top_agents(name_to_spec)
 
         if len(top_agents) == 0:
             raise ValueError("No top agent found in network")

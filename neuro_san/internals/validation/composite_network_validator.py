@@ -33,10 +33,15 @@ class CompositeNetworkValidator(AgentNetworkValidator):
         """
         Validate the agent network.
 
-        :param agent_network: The agent network to validate
+        :param agent_network: The agent network or name -> spec dictionary to validate
         :return: A list of error messages
         """
         errors: List[str] = []
+
+        if agent_network is None:
+            errors.append("Agent network is empty.")
+            return errors
+
         for validator in self.validators:
             errors.extend(validator.validate(agent_network))
 

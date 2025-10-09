@@ -40,6 +40,7 @@ class UrlNetworkValidator(AgentNetworkValidator):
         """
         Check if URL of MCP servers and subnetworks are valid.
 
+        :param agent_network: The agent network or name -> spec dictionary to validate
         :return: List of errors indicating invalid URL
         """
         errors: List[str] = []
@@ -50,7 +51,7 @@ class UrlNetworkValidator(AgentNetworkValidator):
 
         # We can validate either from a top-level agent network,
         # or from the list of tools from the agent spec.
-        agent_network = agent_network.get("tools", agent_network)
+        name_to_spec: Dict[str, Any] = self.get_name_to_spec(agent_network)
 
         # Compile list of urls to check
         urls: List[str] = []
@@ -61,7 +62,7 @@ class UrlNetworkValidator(AgentNetworkValidator):
 
         self.logger.info("Validating URLs for MCP tools and subnetwork...")
 
-        for agent_name, agent in agent_network.items():
+        for agent_name, agent in name_to_spec.items():
             if agent.get("tools"):
                 tools: List[str] = agent.get("tools")
                 if tools:
