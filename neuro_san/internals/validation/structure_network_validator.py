@@ -167,7 +167,8 @@ class StructureNetworkValidator(AgentNetworkValidator):
         path.append(agent)
 
         # Step 5: Get all child agents (down_chains) of current agent
-        down_chains: List[str] = name_to_spec.get(agent, {}).get("tools", [])
+        agent_spec: Dict[str, Any] = name_to_spec.get(agent, {})
+        down_chains: List[str] = agent_spec.get("tools", [])
 
         # Step 6: Recursively visit each child agent
         for child_agent in down_chains:

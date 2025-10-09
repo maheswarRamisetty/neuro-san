@@ -42,7 +42,7 @@ class AgentNetworkValidator:
             return agent_network
 
         name_to_spec: Dict[str, Any] = {}
-        agents: List[Dict[str, Any]] = agent_network.get("tools")
+        agents: List[Dict[str, Any]] = agent_network.get("tools", [])
         for one_agent in agents:
             name_to_spec[one_agent.get("name")] = one_agent
 
