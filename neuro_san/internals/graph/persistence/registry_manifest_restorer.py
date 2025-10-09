@@ -191,10 +191,10 @@ your current working directory (pwd).
 
     def find_external_network_names(self, manifest_entries: Dict[str, Any]) -> List[str]:
         """
-        Find the list of agent network names
+        Find the list of valid external agent network names
 
         :param manifest_entries: The manifest entries
-        :return: A list of agent network names valid for use as external network references.
+        :return: A list of valid external network references.
         """
 
         external_network_names: List[str] = []
