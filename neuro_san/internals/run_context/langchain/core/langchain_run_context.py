@@ -367,16 +367,17 @@ class LangChainRunContext(RunContext):
         :param mcp_info: MCP server URL (string) or a configuration dictionary
         :return: A list of MCP tools as base tools
         """
-
+        # By default, assume no allowed tools. This may get updated below or in the LangChainMcpAdadter.
+        allowed_tools: List[str] = None
         if isinstance(mcp_info, str):
             server_url: str = mcp_info
-            allowed_tools: List[str] = []
         else:
             server_url = mcp_info.get("url")
             allowed_tools = mcp_info.get("tools")
 
         try:
-            mcp_tools: List[BaseTool] = await LangChainMcpAdapter.get_mcp_tools(server_url, allowed_tools)
+            mcp_adapter = LangChainMcpAdapter()
+            mcp_tools: List[BaseTool] = await mcp_adapter.get_mcp_tools(server_url, allowed_tools)
 
         # MCP errors are nested exceptions.
         except ExceptionGroup as nested_exception:
@@ -388,6 +389,8 @@ class LangChainRunContext(RunContext):
             self.logger.info(message)
             return None
 
+        # The allowed tools list might have been updated by the MCP adapter
+        allowed_tools: List[str] = mcp_adapter.client_allowed_tools
         tool_names: List[str] = [tool.name for tool in mcp_tools]
         invalid_names: Set[str] = set(allowed_tools) - set(tool_names)
         # Check if there are invalid tool names in the list.

@@ -29,27 +29,30 @@ class LangChainMcpAdapter:
     LangChain-compatible tools. This class provides static methods for interacting with MCP servers.
     """
 
-    # Cached MCP clients info to avoid repeated file reads
-    _mcp_info_lock: threading.Lock = threading.Lock()
-    _mcp_clients_info: Dict[str, Any] = None
+    def __init__(self):
+        """
+        Constructor
+        """
+        self.client_allowed_tools: List[str] = []
+        self._mcp_info_lock: threading.Lock = threading.Lock()
+        self._mcp_clients_info: Dict[str, Any] = None
 
-    @staticmethod
-    def _load_mcp_clients_info():
+    def _load_mcp_clients_info(self):
         """
         Loads MCP clients information from a configuration file if not already loaded.
         """
-        with LangChainMcpAdapter._mcp_info_lock:
-            if LangChainMcpAdapter._mcp_clients_info is None:
-                LangChainMcpAdapter._mcp_clients_info = McpClientsInfoRestorer().restore()
-                if LangChainMcpAdapter._mcp_clients_info is None:
+        with self._mcp_info_lock:
+            if self._mcp_clients_info is None:
+                self._mcp_clients_info = McpClientsInfoRestorer().restore()
+                if self._mcp_clients_info is None:
                     # Something went wrong reading the file.
                     # Prevent further attempts to load info.
-                    LangChainMcpAdapter._mcp_clients_info = {}
+                    self._mcp_clients_info = {}
 
-    @staticmethod
     async def get_mcp_tools(
-        server_url: str,
-        allowed_tools: Optional[List[str]] = None,
+            self,
+            server_url: str,
+            allowed_tools: Optional[List[str]] = None,
     ) -> List[BaseTool]:
         """
         Fetches tools from the given MCP server and returns them as a list of LangChain-compatible tools.
@@ -60,8 +63,8 @@ class LangChainMcpAdapter:
 
         :return: A list of LangChain BaseTool instances retrieved from the MCP server.
         """
-        if LangChainMcpAdapter._mcp_clients_info is None:
-            LangChainMcpAdapter._load_mcp_clients_info()
+        if self._mcp_clients_info is None:
+            self._load_mcp_clients_info()
 
         mcp_tool_dict: Dict[str, Any] = {
             "url": server_url,
@@ -69,7 +72,7 @@ class LangChainMcpAdapter:
         }
         # Try to look up authentication details from the URL
         headers_dict: Dict[str, Any] =\
-            LangChainMcpAdapter._mcp_clients_info.get(server_url, {}).get("headers")
+            self._mcp_clients_info.get(server_url, {}).get("headers")
         if headers_dict:
             mcp_tool_dict["headers"] = copy.copy(headers_dict)
 
@@ -86,13 +89,16 @@ class LangChainMcpAdapter:
         #   It's possible we might want to cache these results somehow to minimize tool calls.
         mcp_tools: List[BaseTool] = await client.get_tools()
 
-        # If allowed_tools is provided in the hocon, filter the list to include only those tools.
+        # If allowed_tools is provided, filter the list to include only those tools.
         client_allowed_tools: List[str] = allowed_tools
-        # If not provided or is an empty list, check if MCP clients info has a "tools" field to use as allowed tools.
-        if not client_allowed_tools:
-            client_allowed_tools = LangChainMcpAdapter._mcp_clients_info.get(server_url, {}).get("tools")
+        if client_allowed_tools is None:
+            # Check if MCP client info has a "tools" field to use as allowed tools.
+            client_allowed_tools = self._mcp_clients_info.get(server_url, {}).get("tools", [])
+        # If client allowed tools is an empty list, do not filter the tools.
         if client_allowed_tools:
             mcp_tools = [tool for tool in mcp_tools if tool.name in client_allowed_tools]
+
+        self.client_allowed_tools = client_allowed_tools
 
         for tool in mcp_tools:
             # Add "langchain_tool" tags so journal callback can idenitify it.
