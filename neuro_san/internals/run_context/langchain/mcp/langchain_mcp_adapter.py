@@ -90,7 +90,7 @@ class LangChainMcpAdapter:
         client_allowed_tools: List[str] = allowed_tools
         if client_allowed_tools is None:
             # Check if MCP client info has a "tools" field to use as allowed tools.
-            client_allowed_tools = LangChainMcpAdapter._mcp_clients_info.get("tools")
+            client_allowed_tools = LangChainMcpAdapter._mcp_clients_info.get(server_url, {}).get("tools")
         if client_allowed_tools:
             mcp_tools = [tool for tool in mcp_tools if tool.name in client_allowed_tools]
 
