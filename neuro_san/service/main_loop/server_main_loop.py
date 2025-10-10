@@ -80,7 +80,7 @@ class ServerMainLoop(ServerLoopCallbacks):
         arg_parser = ArgumentParser()
 
         arg_parser.add_argument("--port", type=int,
-                                default=int(os.environ.get("AGENT_PORT", AgentSession.DEFAULT_PORT)),
+                                default=int(os.environ.get("AGENT_PORT", 0)),
                                 help="Port number for the grpc service")
         arg_parser.add_argument("--http_port", type=int,
                                 default=int(os.environ.get("AGENT_HTTP_PORT", AgentSession.DEFAULT_HTTP_PORT)),
@@ -156,9 +156,7 @@ class ServerMainLoop(ServerLoopCallbacks):
         server_status = ServerStatus(self.server_name)
         self.server_context.set_server_status(server_status)
 
-        self.grpc_port = args.port
-        if self.grpc_port == 0:
-            server_status.grpc_service.set_requested(False)
+        server_status.grpc_service.set_requested(False)
         self.http_port = args.http_port
         if self.http_port == 0:
             server_status.http_service.set_requested(False)
@@ -227,18 +225,6 @@ class ServerMainLoop(ServerLoopCallbacks):
 
         server_status: ServerStatus = self.server_context.get_server_status()
 
-        if server_status.grpc_service.is_requested():
-            self.grpc_server = GrpcAgentServer(
-                self.grpc_port,
-                server_loop_callbacks=self,
-                server_context=self.server_context,
-                server_name=self.server_name,
-                server_name_for_logs=self.server_name_for_logs,
-                max_concurrent_requests=self.max_concurrent_requests,
-                request_limit=self.request_limit,
-                forwarded_request_metadata=metadata_str)
-            self.grpc_server.prepare_for_serving()
-
         if server_status.updater.is_requested():
             if not server_status.grpc_service.is_requested():
                 current_dir: str = os.path.dirname(os.path.abspath(__file__))
@@ -270,11 +256,6 @@ class ServerMainLoop(ServerLoopCallbacks):
         if server_status.http_service.is_requested():
             http_server_thread = threading.Thread(target=self.http_server, args=(self.grpc_server,), daemon=True)
             http_server_thread.start()
-
-        if server_status.grpc_service.is_requested():
-            self.grpc_server.serve()
-
-        if http_server_thread is not None:
             http_server_thread.join()
 
     def loop_callback(self) -> bool:
