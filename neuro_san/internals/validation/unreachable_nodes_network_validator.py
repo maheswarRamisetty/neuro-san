@@ -152,22 +152,3 @@ class UnreachableNodesNetworkValidator(AbstractNetworkValidator):
             if not self.is_url_or_path(child_agent):
                 # Visit each child - the recursion will handle visited check and network existence
                 self.dfs_reachability_traversal(name_to_spec, child_agent, visited, reachable_agents)
-
-    def get_top_agent(self, name_to_spec: Dict[str, Any]) -> str:
-        """
-        Get the single top agent from a valid network.
-
-        :param name_to_spec: The agent network to validate
-        :return: Name of the top agent
-        :raises ValueError: If network doesn't have exactly one top agent
-        """
-        top_agents: Set[str] = self.find_all_top_agents(name_to_spec)
-
-        if len(top_agents) == 0:
-            raise ValueError("No top agent found in network")
-
-        if len(top_agents) > 1:
-            raise ValueError(f"Multiple top agents found: {sorted(top_agents)}. Expected exactly one.")
-
-        top_agent: str = next(iter(top_agents))
-        return top_agent

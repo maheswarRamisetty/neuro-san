@@ -40,6 +40,8 @@ class KeywordNetworkValidator(AbstractNetworkValidator):
         """
         errors: List[str] = []
 
+        self.logger.info("Validating agent network keywords...")
+
         # Currently, only required "instructions" for non-function agents.
         for agent_name, agent in name_to_spec.items():
             if agent.get("instructions") == "":
