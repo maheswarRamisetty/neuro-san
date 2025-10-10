@@ -19,6 +19,7 @@ from logging import getLogger
 from logging import Logger
 
 from neuro_san.internals.validation.abstract_network_validator import AbstractNetworkValidator
+from neuro_san.internals.validation.graph_visitation_state import GraphVisitationState
 
 
 class CyclesNetworkValidator(AbstractNetworkValidator):
@@ -27,11 +28,6 @@ class CyclesNetworkValidator(AbstractNetworkValidator):
     This is not strictly forbidden by neuro-san infrastructure, but there
     are some situtations where it is good to at least flag it.
     """
-
-    # State tracking for graph visitation
-    UNVISITED: int = 0
-    CURRENTLY_BEING_PROCESSED: int = 1
-    FULLY_PROCESSED: int = 2
 
     def __init__(self):
         """
@@ -67,9 +63,9 @@ class CyclesNetworkValidator(AbstractNetworkValidator):
         :return: Set of agent names that are part of cycles
         """
         # Step 1: Initialize state tracking for all agents
-        state: Dict[str, int] = {}
+        state: Dict[str, GraphVisitationState] = {}
         for agent in name_to_spec.keys():
-            state[agent] = self.UNVISITED
+            state[agent] = GraphVisitationState.UNVISITED
 
         # Step 2: Set to collect all agents that are part of cycles
         cyclical_agents: Set[str] = set()
@@ -77,7 +73,7 @@ class CyclesNetworkValidator(AbstractNetworkValidator):
         # Step 3: Start DFS from each unvisited agent to ensure we check all components
         # (the network might have disconnected parts)
         for agent in name_to_spec.keys():
-            if state[agent] == self.UNVISITED:  # Only start DFS from unvisited agents
+            if state[agent] == GraphVisitationState.UNVISITED:  # Only start DFS from unvisited agents
                 # Start DFS with empty path - this agent is the root of this search
                 self.dfs_cycle_detection(name_to_spec, agent, [], state, cyclical_agents)
 
@@ -86,7 +82,8 @@ class CyclesNetworkValidator(AbstractNetworkValidator):
 
     # pylint: disable=too-many-arguments, too-many-positional-arguments
     def dfs_cycle_detection(self, name_to_spec: Dict[str, Any], agent: str,
-                            path: List[str], state: Dict[str, int], cyclical_agents: Set[str]):
+                            path: List[str], state: Dict[str, GraphVisitationState],
+                            cyclical_agents: Set[str]):
         """
         Perform Depth-First Search (DFS) traversal to detect cycles starting from a specific agent.
 
@@ -97,7 +94,7 @@ class CyclesNetworkValidator(AbstractNetworkValidator):
         :param cyclical_agents: Set to collect all agents that are part of any cycle
         """
         # Step 1: Check if we've encountered an agent currently being processed (back edge = cycle)
-        if state[agent] == self.CURRENTLY_BEING_PROCESSED:
+        if state[agent] == GraphVisitationState.CURRENTLY_BEING_PROCESSED:
             # Cycle detected! The agent is already in our current processing path
             cycle_start_idx: int = path.index(agent)  # Find where the cycle starts in our path
             cycle_agents: Set[str] = set(path[cycle_start_idx:] + [agent])  # Extract all agents in the cycle
@@ -105,11 +102,11 @@ class CyclesNetworkValidator(AbstractNetworkValidator):
             return
 
         # Step 2: Skip if this agent was already fully processed in a previous DFS
-        if state[agent] == self.FULLY_PROCESSED:
+        if state[agent] == GraphVisitationState.FULLY_PROCESSED:
             return  # Already completed, no need to process again
 
         # Step 3: Mark agent as currently being processed (prevents infinite recursion)
-        state[agent] = self.CURRENTLY_BEING_PROCESSED
+        state[agent] = GraphVisitationState.CURRENTLY_BEING_PROCESSED
 
         # Step 4: Add current agent to the path (to track the route we took to get here)
         path.append(agent)
@@ -129,4 +126,4 @@ class CyclesNetworkValidator(AbstractNetworkValidator):
         path.pop()
 
         # Step 8: Mark agent as fully processed (all its descendants have been explored)
-        state[agent] = self.FULLY_PROCESSED
+        state[agent] = GraphVisitationState.FULLY_PROCESSED
