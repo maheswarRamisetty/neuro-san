@@ -232,8 +232,7 @@ your current working directory (pwd).
         if file_reference is not None:
             return self.restore_from_files([file_reference])
 
-        agent_networks: Dict[str, AgentNetwork] =\
-            self.restore_from_files(self.manifest_files)
+        agent_networks: Dict[str, AgentNetwork] = self.restore_from_files(self.manifest_files)
         return agent_networks
 
     def get_manifest_files(self) -> List[str]:
