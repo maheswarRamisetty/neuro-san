@@ -59,16 +59,6 @@ class StructureNetworkValidator(AbstractNetworkValidator):
             if unreachable_agents:
                 errors.append(f"Unreachable agents found: {sorted(unreachable_agents)}")
 
-        # Validate that agent tools have corresponding nodes
-        missing_nodes: Dict[str, List[str]] = self.find_missing_agent_nodes(name_to_spec)
-        if missing_nodes:
-            for agent, missing_tools in missing_nodes.items():
-                # Format the comma-separated list of missing tools
-                tools_str: str = ", ".join(f"'{tool}'" for tool in missing_tools)
-                errors.append(
-                    f"Agent '{agent}' references non-existent agent(s) in tools: {tools_str}"
-                )
-
         if len(errors) > 0:
             # Only warn if there is a problem
             self.logger.warning(str(errors))
@@ -161,36 +151,6 @@ class StructureNetworkValidator(AbstractNetworkValidator):
             if not self.is_url_or_path(child_agent):
                 # Visit each child - the recursion will handle visited check and network existence
                 self.dfs_reachability_traversal(name_to_spec, child_agent, visited, reachable_agents)
-
-    def find_missing_agent_nodes(self, name_to_spec: Dict[str, Any]) -> Dict[str, List[str]]:
-        """
-        Find agents referenced in "tools" lists that don't have corresponding nodes in the network.
-
-        :param name_to_spec: The agent network to validate
-        :return: Dictionary mapping agent names to list of tools that reference non-existent agents
-                Format: {agent_name: [missing_tool1, missing_tool2, ...]}
-        """
-        missing_nodes: Dict[str, List[str]] = {}
-
-        # Iterate through all agents in the network
-        for agent_name, agent_data in name_to_spec.items():
-
-            tools: List[str] = agent_data.get("tools", [])
-            safe_tools: List[str] = self.remove_dictionary_tools(tools)
-
-            # Check each tool in the agent's tools list
-            for tool in safe_tools:
-                # Skip URL/path tools - they're not agents and don't need nodes
-                if self.is_url_or_path(tool):
-                    continue
-
-                # If tool is an agent reference but has no node in network, it's invalid
-                if tool not in name_to_spec:
-                    if agent_name not in missing_nodes:
-                        missing_nodes[agent_name] = []
-                    missing_nodes[agent_name].append(tool)
-
-        return missing_nodes
 
     def get_top_agent(self, name_to_spec: Dict[str, Any]) -> str:
         """
