@@ -22,7 +22,7 @@ from neuro_san.internals.validation.abstract_network_validator import AbstractNe
 
 class ToolboxNetworkValidator(AbstractNetworkValidator):
     """
-    Abstract network validator for toolbox references.
+    AbstractNetworkValidator for toolbox references.
     """
 
     def __init__(self, tools: Dict[str, Any]):
