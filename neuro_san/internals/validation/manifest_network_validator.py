@@ -34,7 +34,7 @@ class ManifestNetworkValidator(CompositeNetworkValidator):
         """
         validators: List[AgentNetworkValidator] = [
             KeywordNetworkValidator(),
-            StructureNetworkValidator(cyclical_agents_ok=True),
+            StructureNetworkValidator(),
             # No ToolBoxNetworkValidator yet.
             ToolNameNetworkValidator(),
             UrlNetworkValidator(external_network_names, mcp_servers),

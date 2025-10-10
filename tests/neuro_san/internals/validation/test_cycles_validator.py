@@ -18,12 +18,12 @@ from unittest import TestCase
 from neuro_san import REGISTRIES_DIR
 from neuro_san.internals.graph.persistence.agent_network_restorer import AgentNetworkRestorer
 from neuro_san.internals.graph.registry.agent_network import AgentNetwork
-from neuro_san.internals.validation.structure_network_validator import StructureNetworkValidator
+from neuro_san.internals.validation.cycles_network_validator import CyclesNetworkValidator
 
 
-class TestStructureNetworkValidator(TestCase):
+class TestCyclesNetworkValidator(TestCase):
     """
-    Unit tests for StructureNetworkValidator class.
+    Unit tests for CyclesNetworkValidator class.
     """
 
     @staticmethod
@@ -39,14 +39,14 @@ class TestStructureNetworkValidator(TestCase):
         """
         Can we construct?
         """
-        validator = StructureNetworkValidator()
+        validator = CyclesNetworkValidator()
         self.assertIsNotNone(validator)
 
     def test_empty(self):
         """
         Tests empty network
         """
-        validator = StructureNetworkValidator()
+        validator = CyclesNetworkValidator()
 
         errors: List[str] = validator.validate(None)
         self.assertEqual(1, len(errors))
@@ -58,7 +58,7 @@ class TestStructureNetworkValidator(TestCase):
         """
         Tests a valid network
         """
-        validator = StructureNetworkValidator()
+        validator = CyclesNetworkValidator()
 
         # Open a known good network file
         config: Dict[str, Any] = self.restore("hello_world.hocon")
@@ -70,48 +70,18 @@ class TestStructureNetworkValidator(TestCase):
             failure_message = errors[0]
         self.assertEqual(0, len(errors), failure_message)
 
-    def test_multiple_front_men(self):
+    def test_cycles(self):
         """
-        Tests a network where there is > 1 front man.
+        Tests a network where there is a cycle.
+        These can actually be ok, but we want to test that we can detect them.
         """
-        validator = StructureNetworkValidator()
-
-        # Open a known good network file
-        config: Dict[str, Any] = self.restore("hello_world.hocon")
-
-        # Invalidate per the test - remove the link between the announcer and synonymizer
-        config["tools"][0]["tools"] = []
-
-        errors: List[str] = validator.validate(config)
-        self.assertEqual(1, len(errors))
-
-    def test_unreachable(self):
-        """
-        Tests a network where there is an unreachable agent.
-        """
-        validator = StructureNetworkValidator()
+        validator = CyclesNetworkValidator()
 
         # Open a known good network file
         config: Dict[str, Any] = self.restore("esp_decision_assistant.hocon")
 
-        # Invalidate per the test - remove the link between the prescriptor and the predictor
-        config["tools"][1]["tools"] = []
-
-        errors: List[str] = validator.validate(config)
-
-        self.assertEqual(1, len(errors), errors[-1])
-
-    def test_missing_nodes(self):
-        """
-        Tests a network where there is an unreachable agent.
-        """
-        validator = StructureNetworkValidator()
-
-        # Open a known good network file
-        config: Dict[str, Any] = self.restore("esp_decision_assistant.hocon")
-
-        # Invalidate per the test - add a node at the predictor
-        config["tools"][2]["tools"] = ["missing_node"]
+        # Invalidate per the test - add a link from the predictor to the prescriptor
+        config["tools"][2]["tools"] = ["prescriptor"]
 
         errors: List[str] = validator.validate(config)
 
