@@ -19,6 +19,7 @@ import os
 import json
 import logging
 
+from json.decoder import JSONDecodeError
 from pyparsing.exceptions import ParseException
 from pyparsing.exceptions import ParseSyntaxException
 
@@ -73,47 +74,56 @@ class RegistryManifestRestorer(Restorer):
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    # pylint: disable=too-many-locals, too-many-branches
     def restore_from_files(self, file_references: Sequence[str]) -> Dict[str, AgentNetwork]:
         """
         :param file_references: The sequence of file references to use when restoring.
         :return: a built map of agent networks
         """
 
-        agent_networks: Dict[str, AgentNetwork] = {}
+        all_agent_networks: Dict[str, AgentNetwork] = {}
 
         # Loop through all the manifest files in the list to make a composite
         for manifest_file in file_references:
+            agents_from_one_manifest: Dict[str, AgentNetwork] = self.restore_one_manifest(manifest_file)
+            all_agent_networks.update(agents_from_one_manifest)
 
-            one_manifest: Dict[str, Any] = {}
-            if manifest_file.endswith(".hocon"):
-                hocon = EasyHoconPersistence()
-                try:
-                    one_manifest = hocon.restore(file_reference=manifest_file)
-                except (ParseException, ParseSyntaxException) as exception:
-                    message: str = f"""
+        return all_agent_networks
+
+    def parse_one_manifest(self, manifest_file: str) -> Dict[str, Any]:
+        """
+        :param manifest_file: The file reference to use when restoring.
+        :return: a built map of agent networks
+        """
+        one_manifest: Dict[str, Any] = {}
+
+        if manifest_file.endswith(".hocon"):
+            hocon = EasyHoconPersistence()
+            try:
+                one_manifest = hocon.restore(file_reference=manifest_file)
+            except (ParseException, ParseSyntaxException) as exception:
+                message: str = f"""
 There was an error parsing the agent network manifest file "{manifest_file}".
 See the accompanying ParseException (above) for clues as to what might be
 syntactically incorrect in that file.
 """
-                    raise ParseException(message) from exception
-            else:
-                try:
-                    with open(manifest_file, "r", encoding="utf-8") as json_file:
-                        one_manifest = json.load(json_file)
-                except FileNotFoundError:
-                    # Use the common verbiage below
-                    one_manifest = None
-                except json.decoder.JSONDecodeError as exception:
-                    message: str = f"""
+                raise ParseException(message) from exception
+        else:
+            try:
+                with open(manifest_file, "r", encoding="utf-8") as json_file:
+                    one_manifest = json.load(json_file)
+            except FileNotFoundError:
+                # Use the common verbiage below
+                one_manifest = None
+            except JSONDecodeError as exception:
+                message: str = f"""
 There was an error parsing the agent network manifest file "{manifest_file}".
 See the accompanying JSONDecodeError exception (above) for clues as to what might be
 syntactically incorrect in that file.
 """
-                    raise ParseException(message) from exception
+                raise ParseException(message) from exception
 
-            if one_manifest is None:
-                message = f"Could not find manifest file at path: {manifest_file}.\n" + """
+        if one_manifest is None:
+            message = f"Could not find manifest file at path: {manifest_file}.\n" + """
 Some common problems include:
 * The file itself simply does not exist.
 * Path is not an absolute path and you are invoking the server from a place
@@ -123,52 +133,95 @@ Some common problems include:
 Double-check the value of the AGENT_MANIFEST_FILE env var and
 your current working directory (pwd).
 """
-                raise FileNotFoundError(message)
+            raise FileNotFoundError(message)
 
-            # Find the list of agent network names
-            external_network_names: List[str] = self.find_external_network_names(one_manifest)
+        return one_manifest
 
-            # DEF - need mcp servers as well at some point
-            validator = ManifestNetworkValidator(external_network_names)
+    def restore_one_manifest(self, manifest_file: str) -> Dict[str, AgentNetwork]:
+        """
+        :param manifest_file: The file reference to use when restoring.
+        :return: a built map of agent networks
+        """
 
-            for key, value in one_manifest.items():
-                if not bool(value):
-                    # Fast out
+        agent_networks: Dict[str, AgentNetwork] = {}
+
+        one_manifest: Dict[str, Any] = self.parse_one_manifest(manifest_file)
+
+        file_of_class = FileOfClass(manifest_file)
+        manifest_dir: str = file_of_class.get_basis()
+
+        external_network_names: List[str] = self.find_external_network_names(one_manifest)
+
+        # DEF - need mcp servers as well at some point
+        validator = ManifestNetworkValidator(external_network_names)
+
+        for key, value in one_manifest.items():
+
+            # Read the true/false value as to whether or not we serve up this agent
+            # This might get more complicated in the future.
+            if not bool(value):
+                # Fast out
+                continue
+
+            # Key here is an agent name in a form that we chose,
+            # and we'll need to use an agent mapper to get to this agent definition file.
+            # Keys sometimes come with quotes.
+            manifest_key: str = key.replace(r'"', "")
+            manifest_key = manifest_key.strip()
+
+            agent_filepath: str = self.agent_mapper.agent_name_to_filepath(manifest_key)
+            agent_network: AgentNetwork = self.restore_one_agent_network(manifest_dir, agent_filepath, manifest_key)
+
+            if agent_network is not None:
+
+                validation_errors: List[str] = validator.validate(agent_network.get_config())
+                if len(validation_errors) > 0:
+                    self.logger.error("manifest registry %s has validation errors. Skipping. Errors: %s",
+                                      agent_filepath,
+                                      json.dumps(validation_errors, indent=4, sort_keys=True))
+                    agent_network = None
                     continue
 
-                # Key here is an agent name in a form that we chose,
-                # and we'll need to use an agent mapper to get to this agent definition file.
-                # Keys sometimes come with quotes.
-                use_key: str = key.replace(r'"', "")
-                use_key = use_key.strip()
-                agent_filepath: str = self.agent_mapper.agent_name_to_filepath(use_key)
+            if agent_network is None:
+                self.logger.error("manifest registry %s not found in %s", manifest_key, manifest_file)
+                continue
 
-                file_of_class = FileOfClass(manifest_file)
-                manifest_dir: str = file_of_class.get_basis()
-                registry_restorer = AgentNetworkRestorer(registry_dir=manifest_dir, agent_mapper=self.agent_mapper)
-                try:
-                    agent_network: AgentNetwork = registry_restorer.restore(file_reference=agent_filepath)
-                except FileNotFoundError as exc:
-                    self.logger.error("Failed to restore registry item %s - %s", use_key, str(exc))
-                    agent_network = None
-
-                if agent_network is not None:
-
-                    validation_errors: List[str] = validator.validate(agent_network.get_config())
-                    if len(validation_errors) > 0:
-                        self.logger.error("manifest registry %s has validation errors. Skipping. Errors: %s",
-                                          agent_filepath,
-                                          json.dumps(validation_errors, indent=4, sort_keys=True))
-                        continue
-
-                    network_name: str = self.agent_mapper.filepath_to_agent_network_name(agent_filepath)
-                    agent_networks[network_name] = agent_network
-                else:
-                    self.logger.error("manifest registry %s not found in %s", use_key, manifest_file)
+            network_name: str = self.agent_mapper.filepath_to_agent_network_name(agent_filepath)
+            agent_networks[network_name] = agent_network
 
         return agent_networks
 
-    # pylint: disable=too-many-locals
+    def restore_one_agent_network(self, manifest_dir: str, agent_filepath: str, manifest_key: str) -> AgentNetwork:
+        """
+        :param manifest_dir: The directory of the manifest file
+        :param agent_filepath: The file reference for the agent network description to restore
+        :param manifest_key: the key to use when restoring
+        :return: a built map of agent networks
+        """
+
+        agent_network: AgentNetwork = None
+        registry_restorer = AgentNetworkRestorer(registry_dir=manifest_dir, agent_mapper=self.agent_mapper)
+        try:
+            agent_network = registry_restorer.restore(file_reference=agent_filepath)
+        except FileNotFoundError as exception:
+            message: str = f"Failed to restore registry item {manifest_key}. Skipping. - {str(exception)}"
+            self.logger.error(message)
+            agent_network = None
+        except (ParseException, ParseSyntaxException, JSONDecodeError) as exception:
+
+            # Be sure we spit out the right exception message with relevant parsing
+            # information as the error.  If not, we don't get enough good information
+            # to act on when there is a problem.
+            use_exception: Exception = exception
+            if exception.__cause__ is not None:
+                use_exception = exception.__cause__
+
+            message: str = f"Parse error in registry item {manifest_key}. Skipping. - {str(use_exception)}"
+            self.logger.error(message)
+            agent_network = None
+
+        return agent_network
+
     def restore(self, file_reference: str = None) -> Dict[str, AgentNetwork]:
         """
         :param file_reference: The file reference to use when restoring.
@@ -179,8 +232,7 @@ your current working directory (pwd).
         if file_reference is not None:
             return self.restore_from_files([file_reference])
 
-        agent_networks: Dict[str, AgentNetwork] =\
-            self.restore_from_files(self.manifest_files)
+        agent_networks: Dict[str, AgentNetwork] = self.restore_from_files(self.manifest_files)
         return agent_networks
 
     def get_manifest_files(self) -> List[str]:
@@ -206,9 +258,9 @@ your current working directory (pwd).
             # Key here is an agent name in a form that we chose,
             # and we'll need to use an agent mapper to get to this agent definition file.
             # Keys sometimes come with quotes.
-            use_key: str = key.replace(r'"', "")
-            use_key = use_key.strip()
-            agent_filepath: str = self.agent_mapper.agent_name_to_filepath(use_key)
+            manifest_key: str = key.replace(r'"', "")
+            manifest_key = manifest_key.strip()
+            agent_filepath: str = self.agent_mapper.agent_name_to_filepath(manifest_key)
             network_name: str = self.agent_mapper.filepath_to_agent_network_name(agent_filepath)
             external_network_names.append(f"/{network_name}")
 
