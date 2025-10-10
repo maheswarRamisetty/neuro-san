@@ -49,7 +49,7 @@ class TestUrlNetworkValidator(TestCase):
         """
         Tests a valid network
         """
-        validator = UrlNetworkValidator(subnetworks=["/math_guy"])
+        validator = UrlNetworkValidator(external_agents=["/math_guy"])
 
         # Open a known good network file
         restorer = AgentNetworkRestorer()
@@ -68,7 +68,7 @@ class TestUrlNetworkValidator(TestCase):
         """
         Tests a network where at least one of the nodes does not have a listed external network
         """
-        validator = UrlNetworkValidator(subnetworks=["/math_guy"])
+        validator = UrlNetworkValidator(external_agents=["/math_guy"])
 
         # Open a known good network file
         restorer = AgentNetworkRestorer()

@@ -25,20 +25,20 @@ class UrlNetworkValidator(AgentNetworkValidator):
     AgentNetworkValidator that looks for correct URLs in an agent network
     """
 
-    def __init__(self, subnetworks: List[str] = None, mcp_servers: List[str] = None):
+    def __init__(self, external_agents: List[str] = None, mcp_servers: List[str] = None):
         """
         Constructor
 
-        :param subnetworks: A list of subnetworks
+        :param external_agents: A list of valid /external_agent referencess
         :param mcp_servers: A list of MCP servers, as read in from a mcp_info.hocon file
         """
         self.logger: Logger = getLogger(self.__class__.__name__)
-        self.subnetworks: List[str] = subnetworks
+        self.external_agents: List[str] = external_agents
         self.mcp_servers: List[str] = mcp_servers
 
     def validate(self, agent_network: Dict[str, Any]) -> List[str]:
         """
-        Check if URL of MCP servers and subnetworks are valid.
+        Check if URL of MCP servers and external_agents are valid.
 
         :param agent_network: The agent network or name -> spec dictionary to validate
         :return: List of errors indicating invalid URL
@@ -55,8 +55,8 @@ class UrlNetworkValidator(AgentNetworkValidator):
 
         # Compile list of urls to check
         urls: List[str] = []
-        if self.subnetworks:
-            urls.extend(self.subnetworks)
+        if self.external_agents:
+            urls.extend(self.external_agents)
         if self.mcp_servers:
             urls.extend(self.mcp_servers)
 
