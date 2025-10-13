@@ -120,9 +120,14 @@ class DirectAgentSessionFactory:
             agent_network = restorer.restore(file_reference=agent_name)
         else:
             # Use the standard stuff available via the manifest file.
-            public_storage: AgentNetworkStorage = self.network_storage_dict.get("public")
-            agent_network_provider: AgentNetworkProvider = public_storage.get_agent_network_provider(agent_name)
-            agent_network = agent_network_provider.get_agent_network()
+            for storage_type in ["public", "protected"]:
+                storage: AgentNetworkStorage = self.network_storage_dict.get(storage_type)
+                agent_network_provider: AgentNetworkProvider = storage.get_agent_network_provider(agent_name)
+                if agent_network_provider is None:
+                    continue
+                agent_network = agent_network_provider.get_agent_network()
+                if agent_network is not None:
+                    break
 
         # Common place for nice error messages when networks are not found
         MissingAgentCheck.check_agent_network(agent_network, agent_name)
