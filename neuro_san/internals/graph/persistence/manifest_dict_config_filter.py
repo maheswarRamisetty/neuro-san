@@ -53,7 +53,7 @@ class ManifestDictConfigFilter(ConfigFilter):
 
         filtered: Dict[str, Dict[str, Any]] = {}
 
-        for key, value in basis_config:
+        for key, value in basis_config.items():
 
             expanded_value: Dict[str, Any] = {
                 "serve": True,

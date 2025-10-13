@@ -34,7 +34,7 @@ class ManifestKeyConfigFilter(ConfigFilter):
         self.logger: Logger = getLogger(self.__class__.__name__)
         self.manifest_file: str = manifest_file
 
-    def filter_config(self, basis_config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    def filter_config(self, basis_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Filters the given basis config.
 
@@ -44,9 +44,9 @@ class ManifestKeyConfigFilter(ConfigFilter):
                 policy encapsulated by the implementation
         """
 
-        filtered: Dict[str, Dict[str, Any]] = {}
+        filtered: Dict[str, Any] = {}
 
-        for key, value in basis_config:
+        for key, value in basis_config.items():
 
             # Key here is an agent name in a form that we choose.
             # Keys sometimes come with quotes.

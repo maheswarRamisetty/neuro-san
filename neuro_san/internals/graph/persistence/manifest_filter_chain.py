@@ -31,6 +31,6 @@ class ManifestFilterChain(ConfigFilterChain):
         super().__init__()
 
         # Order matters
+        self.register(ManifestKeyConfigFilter(manifest_file))
         self.register(ManifestDictConfigFilter(manifest_file))
         self.register(ServedManifestConfigFilter(manifest_file))
-        self.register(ManifestKeyConfigFilter(manifest_file))

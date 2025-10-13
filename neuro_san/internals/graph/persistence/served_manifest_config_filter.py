@@ -46,7 +46,7 @@ class ServedManifestConfigFilter(ConfigFilter):
 
         filtered: Dict[str, Dict[str, Any]] = {}
 
-        for key, value in basis_config:
+        for key, value in basis_config.items():
 
             if not value.get("serve", False):
                 self.logger.warning("Manifest entry for %s in file %s will not be served, " +
