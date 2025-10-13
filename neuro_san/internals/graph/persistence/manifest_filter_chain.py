@@ -28,6 +28,8 @@ class ManifestFilterChain(ConfigFilterChain):
 
         :param manifest_file: The name of the manifest file we are processing for logging purposes
         """
+        super().__init__()
+
         # Order matters
         self.register(ManifestDictConfigFilter(manifest_file))
         self.register(ServedManifestConfigFilter(manifest_file))
