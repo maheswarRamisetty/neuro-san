@@ -59,7 +59,8 @@
     "website_search_usage_example.hocon": true,
 
     # The next one is an example of agents calling langchain base tools from toolbox.
-    # This requires TAVILY_API_KEY to run. To get the key go to https://www.tavily.com/
+    # This requires an environment variable TAVILY_API_KEY set to run.
+    # To get the key go to https://www.tavily.com/
     # Because this requires the key, this is not served up by default.
     "tavily_search.hocon": false,
 
