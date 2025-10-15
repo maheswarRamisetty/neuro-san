@@ -60,7 +60,6 @@ Single string values can be:
 |:----------------|:----------|
 | direct (default)| Connect directly to the agent via a neuro-san library call - no server required. |
 | http  |  Connect to the agent via a server via http |
-| grpc  |  Connect to the agent via a server via gRPC |
 | https |  Connect to the agent via a server via secure http |
 
 Note that it is possible to specify a list of connection types for the same test case.
@@ -70,7 +69,7 @@ Example of a list:
 
 ```json
     ...
-    "connections": [ "direct", "http", "grpc" ]
+    "connections": [ "direct", "http", "https" ]
     ...
 ```
 
@@ -108,7 +107,7 @@ not the agent itself.
 ### use_direct
 
 Boolean value that describes how an external agent is called.
-When False (the default), a grpc call is used to contact the server of the external agent,
+When False (the default), an http request is used to contact the server of the external agent,
 even if it is on the same server.
 When True, no new socket is created and a direct/library connection is used instead.
 
@@ -195,7 +194,7 @@ you are starting a whole new clean-slate conversation.
 
 A dictionary describing how to test various aspects of the response from the agent.
 
-By default this is an empty dictionary, indicating no tests should be done on this
+By default, this is an empty dictionary, indicating no tests should be done on this
 iteration of the conversation with the agent.  An empty response is valuable for at
 least advancing the conversation forward to a point of interest that you'd like to test.
 
@@ -395,7 +394,7 @@ For numbers, this is the expected inequality. For strings, this is a lexicograph
 If what is tested is less than the value mentioned, the test will pass. This is just like
 [TestCase.assertLess](https://docs.python.org/3/library/unittest.html#unittest.TestCase.assertLess)
 
-Similarly the "not_less" test looks for a value that is considered greater than or equal to what is given.
+Similarly, the "not_less" test looks for a value that is considered greater than or equal to what is given.
 If what is tested is >= than the value mentioned, the test will pass. This is just like
 [TestCase.assertGreaterEqual](https://docs.python.org/3/library/unittest.html#unittest.TestCase.assertGreaterEqual)
 
@@ -433,7 +432,7 @@ response matches the "gist" of the criteria.
 
 If the response from the agent we are testing matches the "gist" of the given criteria, the test passes.
 
-Similarly the "not_gist" test passes when the response does not match the "gist" of the given criteria.
+Similarly, the "not_gist" test passes when the response does not match the "gist" of the given criteria.
 
 ## Use with the Assessor
 
