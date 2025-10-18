@@ -21,11 +21,13 @@ from typing import Dict
 
 import jsonschema
 
+from neuro_san.internals.interfaces.dictionary_validator import DictionaryValidator
 from neuro_san.service.http.handlers.base_request_handler import BaseRequestHandler
 from neuro_san.internals.network_providers.agent_network_storage import AgentNetworkStorage
 from neuro_san.service.http.interfaces.agent_authorizer import AgentAuthorizer
 from neuro_san.service.http.logging.http_logger import HttpLogger
 from neuro_san.service.mcp.context.mcp_server_context import MCPServerContext
+from neuro_san.service.mcp.session.mcp_session_manager import MCPSessionManager, MCP_SESSION_ID
 from neuro_san.service.mcp.util.mcp_errors_util import MCPErrorsUtil
 from neuro_san.service.mcp.mcp_errors import MCPError
 from neuro_san.service.mcp.processors.mcp_tools_processor import MCPToolsProcessor
@@ -61,9 +63,6 @@ class MCPRootHandler(BaseRequestHandler):
         self.network_storage_dict: Dict[str, AgentNetworkStorage] = network_storage_dict
         self.show_absent: bool = os.environ.get("SHOW_ABSENT_METADATA") is not None
 
-        # Set default request_id for this request handler in case we will need it:
-        BaseRequestHandler.request_id += 1
-
         if os.environ.get("AGENT_ALLOW_CORS_HEADERS") is not None:
             self.set_header("Access-Control-Allow-Origin", "*")
             self.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -90,18 +89,83 @@ class MCPRootHandler(BaseRequestHandler):
             # Parse JSON body
             data = json.loads(self.request.body)
 
-            request_id = data.get("id", "absent")
+            # Validate incoming request content:
+            request_validator: DictionaryValidator = self.mcp_context.get_request_validator()
+            validation_errors: List[str] = None
+            if request_validator:
+                validation_errors = request_validator.validate_dictionary(data)
+            if validation_errors:
+                extra_error: str = "; ".join(validation_errors)
+                error_msg: Dict[str, Any] =\
+                    MCPErrorsUtil.get_protocol_error(request_id, MCPError.InvalidRequest, extra_error)
+                self.set_status(400)
+                self.write(error_msg)
+                self.logger.error(self.get_metadata(), f"Error: Invalid MCP request: {extra_error}")
+                self.do_finish()
+                return
+        except json.JSONDecodeError as exc:
+            error_msg: Dict[str, Any] = \
+                MCPErrorsUtil.get_protocol_error(request_id, MCPError.ParseError, str(exc))
+            self.set_status(400)
+            self.write(error_msg)
+            self.logger.error(self.get_metadata(), "error: Invalid JSON format")
+            self.do_finish()
+            return
 
-            # Validate incoming RPC structure against MCP schema:
-            jsonschema.validate(instance=data, schema=self.mcp_protocol_schema)
-
-            method: str = data.get("method")
+        # We have valid MCP request:
+        request_id = data.get("id", "absent")
+        method: str = data.get("method")
+        session_id: str = self.request.headers.get("Mcp-Session-Id", None)
+        request_done: bool = False
+        try:
             if method == "initialize":
-                handshake_processor: MCPInitializeProcessor = MCPInitializeProcessor(self.logger)
-                result_dict: Dict[str, Any] = await handshake_processor.initialize_handshake(request_id, metadata, data["params"])
+                # Handle handshake/initialize session request
+                handshake_processor: MCPInitializeProcessor = MCPInitializeProcessor(self.mcp_context, self.logger)
+                result_dict, session_id = await handshake_processor.initialize_handshake(request_id, metadata, data["params"])
+                self.set_header(MCP_SESSION_ID, session_id)
                 self.set_status(200)
                 self.write(result_dict)
-            elif method == "tools/list":
+                request_done = True
+            elif method == "notifications/initialized":
+                # Handle client acknowledgement of initialization response,
+                # this activates the session on the server side for further operations.
+                handshake_processor: MCPInitializeProcessor = MCPInitializeProcessor(self.mcp_context, self.logger)
+                result: bool = await handshake_processor.activate_session(session_id, metadata)
+                response_code: int = 202 if result else 404
+                self.set_header(MCP_SESSION_ID, session_id)
+                self.set_status(response_code)
+                # We do not have any response body for this request
+                request_done = True
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            error_msg: Dict[str, Any] = \
+                MCPErrorsUtil.get_protocol_error(request_id, MCPError.ServerError, str(exc))
+            self.set_status(500)
+            self.write(error_msg)
+            self.logger.error(self.get_metadata(), "error: Server error")
+            request_done = True
+        finally:
+            # We are done with response stream:
+            if request_done:
+                self.do_finish()
+                return
+
+        # For all other methods, we need to have valid session:
+        session_active: bool = False
+        if session_id is not None:
+            session_manager: MCPSessionManager = self.mcp_context.get_session_manager()
+            session_active = session_manager.is_session_active(session_id)
+        if not session_active:
+            extra_error: str = "invalid or inactive session id"
+            error_msg: Dict[str, Any] =\
+                MCPErrorsUtil.get_protocol_error(request_id, MCPError.InvalidSession, extra_error)
+            self.set_status(401)
+            self.write(error_msg)
+            self.logger.error(self.get_metadata(), f"error: {extra_error}")
+            self.do_finish()
+            return
+
+        try:
+            if method == "tools/list":
                 tools_processor: MCPToolsProcessor = MCPToolsProcessor(self.logger, self.network_storage_dict, self.agent_policy)
                 result_dict: Dict[str, Any] = await tools_processor.list_tools(request_id, metadata)
                 self.set_status(200)
@@ -124,13 +188,6 @@ class MCPRootHandler(BaseRequestHandler):
                 result_dict: Dict[str, Any] = await prompts_processor.list_resources(request_id, metadata)
                 self.set_status(200)
                 self.write(result_dict)
-            elif method == "initialize":
-                handshake_processor: MCPInitializeProcessor = MCPInitializeProcessor(self.logger)
-                result_dict: Dict[str, Any] = await handshake_processor.initialize_handshake(request_id, metadata, data["params"])
-                self.set_status(200)
-                self.write(result_dict)
-            elif method == "notifications/initialized":
-                pass
             else:
                 # Method is not found/not supported
                 extra_error: str = f"method {method} not found"
@@ -139,18 +196,6 @@ class MCPRootHandler(BaseRequestHandler):
                 self.set_status(400)
                 self.write(error_msg)
                 self.logger.error(self.get_metadata(), f"error: Method {method} not found")
-        except json.JSONDecodeError as exc:
-            error_msg: Dict[str, Any] =\
-                MCPErrorsUtil.get_protocol_error(request_id, MCPError.ParseError, str(exc))
-            self.set_status(400)
-            self.write(error_msg)
-            self.logger.error(self.get_metadata(), "error: Invalid JSON format")
-        except jsonschema.exceptions.ValidationError as exc:
-            error_msg: Dict[str, Any] =\
-                MCPErrorsUtil.get_protocol_error(request_id, MCPError.InvalidRequest, str(exc))
-            self.set_status(400)
-            self.write(error_msg)
-            self.logger.error(self.get_metadata(), "error: Invalid JSON/RPC request")
         except Exception as exc:  # pylint: disable=broad-exception-caught
             error_msg: Dict[str, Any] =\
                 MCPErrorsUtil.get_protocol_error(request_id, MCPError.ServerError, str(exc))

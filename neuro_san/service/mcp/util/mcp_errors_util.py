@@ -61,3 +61,18 @@ class MCPErrorsUtil:
                 "isError": True
             }
         }
+
+    @classmethod
+    def is_error(cls, response_dict: Dict[str, Any]) -> bool:
+        """
+        Check if the given MCP response dictionary represents an error.
+        :param response_dict: MCP response dictionary;
+        :return: True if the response is an error, False otherwise.
+        """
+        # Check for protocol error first:
+        protocol_error = response_dict["error"]
+        if protocol_error is not None and len(protocol_error) > 0:
+            return True
+        # Check for tool error:
+        has_error: bool = response_dict.get("result", {}).get("isError", False)
+        return has_error

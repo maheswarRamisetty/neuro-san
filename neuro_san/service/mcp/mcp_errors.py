@@ -25,6 +25,8 @@ class MCPError(Enum):
     InvalidParams = (-32602, "Invalid params")
     InternalError = (-32603, "Internal error")
     ServerError = (-32000, "Server error")
+    InvalidSession = (-33000, "Invalid Session")
+
 
     def __init__(self, num_value, str_label):
         self.num_value = num_value

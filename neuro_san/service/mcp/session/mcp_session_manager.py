@@ -23,6 +23,8 @@ import base64
 
 from neuro_san.service.mcp.session.mcp_client_session import MCPClientSession
 
+MCP_SESSION_ID: str = "Mcp-Session-Id"
+
 class MCPSessionManager:
     """
     Class creating and managing client sessions with the MCP service.
@@ -39,12 +41,38 @@ class MCPSessionManager:
 
         :return: The created MCPClientSession
         """
+        session_id: str = self._generate_id()
+        client_session: MCPClientSession = MCPClientSession(session_id)
+        self.sessions[session_id] = client_session
+        return client_session
+
+    def activate_session(self, session_id: str) -> bool:
+        """
+        Activate an existing client session with the given session id.
+        Note that multiple session activations are currently allowed
+        :param session_id: The session id to activate
+        :return: True if successful;
+                 False if session with given id does not exist
+        """
         with self.lock:
-            if client_id in self.sessions:
-                raise ValueError(f"Session with client id {client_id} already exists")
-            session = MCPClientSession()
-            self.sessions[client_id] = session
-            return session
+            session: MCPClientSession = self.sessions.get(session_id)
+            if session is not None:
+                session.set_active(True)
+                return True
+            return False
+
+    def is_session_active(self, session_id: str) -> bool:
+        """
+        Check if the session with the given id is active.
+        :param session_id: The session id to check
+        :return: True if session exists and is active;
+                 False otherwise
+        """
+        with self.lock:
+            session: MCPClientSession = self.sessions.get(session_id)
+            if session is not None:
+                return session.is_active()
+            return False
 
     def _generate_id(self) -> str:
         """

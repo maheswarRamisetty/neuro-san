@@ -33,5 +33,13 @@ class MCPServerContext:
 
         :return: The request validator
         """
-        raise NotImplementedError
+        return None
+
+    def get_session_manager(self) -> MCPSessionManager:
+        """
+        Get the MCP session manager for this context.
+        :return: The session manager
+        """
+        return self.session_manager
+
 

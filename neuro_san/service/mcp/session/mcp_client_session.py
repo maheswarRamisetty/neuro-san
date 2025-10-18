@@ -26,7 +26,7 @@ class MCPClientSession:
 
         # Flag indicating if the session is properly initialized
         # by handshake sequence and now active.
-        self.is_active: bool = False
+        self.session_is_active: bool = False
 
     def get_id(self) -> str:
         """
@@ -38,13 +38,13 @@ class MCPClientSession:
         """
         Check if the session is active.
         """
-        return self.is_active
+        return self.session_is_active
 
     def set_active(self, is_active: bool) -> None:
         """
         Set the session active flag.
         """
-        self.is_active = is_active
+        self.session_is_active = is_active
 
 
 

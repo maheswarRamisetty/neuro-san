@@ -25,5 +25,14 @@ class MCPRequestValidator(DictionaryValidator):
         self.validation_schema = validation_schema
 
     def validate(self, candidate: Dict[str, Any]) -> List[str]:
+        # Validate incoming RPC structure against MCP schema:
+        #jsonschema.validate(instance=data, schema=self.mcp_protocol_schema)
+        #except jsonschema.exceptions.ValidationError as exc:
+        # except jsonschema.exceptions.ValidationError as exc:
+        #     error_msg: Dict[str, Any] =\
+        #         MCPErrorsUtil.get_protocol_error(request_id, MCPError.InvalidRequest, str(exc))
+        #     self.set_status(400)
+        #     self.write(error_msg)
+        #     self.logger.error(self.get_metadata(), "error: Invalid JSON/RPC request")
 
         return None
