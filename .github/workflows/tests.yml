@@ -56,7 +56,6 @@ jobs:
 
       - name: Check README renders correctly on PyPI
         run: |
-          pip install cmarkgfm==2024.11.20 readme_renderer readme_renderer[md]
           python -m readme_renderer README.md
 
       - name: Notify Slack on success
