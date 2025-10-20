@@ -27,9 +27,8 @@ from logging import getLogger
 
 from pydantic_core import ValidationError
 
-from langchain_classic.agents import Agent
+from langchain.agents.factory import create_agent
 from langchain_classic.agents import AgentExecutor
-from langchain_classic.agents.tool_calling_agent.base import create_tool_calling_agent
 from langchain_classic.callbacks.tracers.logging import LoggingCallbackHandler
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.language_models.base import BaseLanguageModel
@@ -37,9 +36,10 @@ from langchain_core.messages.ai import AIMessage
 from langchain_core.messages.base import BaseMessage
 from langchain_core.messages.human import HumanMessage
 from langchain_core.messages.system import SystemMessage
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import Runnable
-from langchain_core.tools import BaseTool
+from langchain_core.prompts.chat import ChatPromptTemplate
+from langchain_core.runnables.base import Runnable
+from langchain_core.runnables.passthrough import RunnablePassthrough
+from langchain_core.tools.base import BaseTool
 
 from leaf_common.config.resolver_util import ResolverUtil
 
@@ -112,7 +112,7 @@ class LangChainRunContext(RunContext):
         self.chat_history: List[BaseMessage] = []
         self.journal: OriginatingJournal = None
         self.llm_resources: LangChainLlmResources = None
-        self.agent: Agent = None
+        self.agent: Runnable = None
 
         # This might get modified in create_resources() (for now)
         self.llm_config: Dict[str, Any] = llm_config
@@ -205,14 +205,14 @@ class LangChainRunContext(RunContext):
         self.agent = self.create_agent_with_fallbacks(prompt_template)
         self.resources_created = True
 
-    def create_agent_with_fallbacks(self, prompt_template: ChatPromptTemplate) -> Agent:
+    def create_agent_with_fallbacks(self, prompt_template: ChatPromptTemplate) -> Runnable:
         """
         Creates an agent with potential fallback llms to use.
         :param prompt_template: The ChatPromptTemplate to use for the agent
         :return: An Agent (Runnable)
         """
         # Initialize our return value
-        agent: Agent = None
+        agent: Runnable = None
 
         # Get the factory we will use
         llm_factory: ContextTypeLlmFactory = self.invocation_context.get_llm_factory()
@@ -229,7 +229,7 @@ class LangChainRunContext(RunContext):
 
             # Create a model we might use.
             one_llm_resources: LangChainLlmResources = llm_factory.create_llm(fallback)
-            one_agent: Agent = self.create_agent(prompt_template, one_llm_resources.get_model())
+            one_agent: Runnable = self.create_agent(prompt_template, one_llm_resources.get_model())
 
             if index == 0:
                 # The first agent is the one we want to be our main guy.
@@ -247,7 +247,7 @@ class LangChainRunContext(RunContext):
 
         return agent
 
-    def create_agent(self, prompt_template: ChatPromptTemplate, llm: BaseLanguageModel) -> Agent:
+    def create_agent(self, prompt_template: ChatPromptTemplate, llm: BaseLanguageModel) -> Runnable:
         """
         Creates an agent.
         :param prompt_template: The ChatPromptTemplate to use for the agent
@@ -255,34 +255,25 @@ class LangChainRunContext(RunContext):
         :return: An Agent (Runnable)
         """
         # Initialize our return value
-        agent: Agent = None
+        agent: Runnable = None
 
+        # Determine how complex the meat of our agent chain will be
+        meat: Runnable = llm
         if len(self.tools) > 0:
-            agent = create_tool_calling_agent(llm, self.tools, prompt_template)
+            meat = create_agent(model=llm, tools=self.tools)
 
-            # The above call creates a chain in this order:
-            #   first:  RunnablePassthrough
-            #   middle: prompt
-            #           llm_with_tools
-            #   last:   ToolsAgentOutputParser
-            #
-            # ... we need to mess with that a bit
+        # This uses LangChain Expression Language (LCEL), which enables a functional, pipeline-style composition
+        # using "|". Here, we pass `agent_scratchpad` in the input message, but since we don't explicitly assign it
+        # to `intermediate_steps` (as done in the old `create_tool_calling_agent`), it remains unused by the prompt.
+        #
+        # In contrast, the old `create_tool_calling_agent` can be written in LCEL as
+        # RunnablePassthrough | prompt | llm_with_tools | ToolsAgentOutputParser
+        # where RunnablePassthrough `agent scratchpad` convert (AgentAction, tool output) tuples into ToolMessages.
+        #
+        # By skipping this step, our agent functions as a pure LLM-driven system with a defined role,
+        # without tool invocation logic influencing its decision-making.
 
-            # Replace the output parser from the call above.
-            # Per empirical experience, this is "last".
-            agent.last = JournalingToolsAgentOutputParser(self.journal)
-        else:
-            # This uses LangChain Expression Language (LCEL), which enables a functional, pipeline-style composition
-            # using "|". Here, we pass `agent_scratchpad` in the input message, but since we don't explicitly assign it
-            # to `intermediate_steps` (as done in `create_tool_calling_agent`), it remains unused by the prompt.
-            #
-            # In contrast, `create_tool_calling_agent` can be written in LCEL as
-            # RunnablePassthrough | prompt | llm_with_tools | ToolsAgentOutputParser
-            # where RunnablePassthrough `agent scratchpad` convert (AgentAction, tool output) tuples into ToolMessages.
-            #
-            # By skipping this step, our agent functions as a pure LLM-driven system with a defined role,
-            # without tool invocation logic influencing its decision-making.
-            agent = prompt_template | llm | JournalingToolsAgentOutputParser(self.journal)
+        agent = RunnablePassthrough() | prompt_template | meat | JournalingToolsAgentOutputParser(self.journal)
 
         return agent
 
