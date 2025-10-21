@@ -17,7 +17,7 @@ from typing import List
 from typing import Union
 
 from asyncio import Task
-from asyncio import TimeoutError
+from asyncio import TimeoutError as AsyncTimeout
 from asyncio import wait_for
 from contextvars import Context
 from contextvars import ContextVar
@@ -123,7 +123,7 @@ class LangChainTokenCounter:
             task: Task = new_context.run(self.create_task, awaitable)
             try:
                 retval = await wait_for(task, max_execution_seconds)
-            except TimeoutError:
+            except AsyncTimeout:
                 await task.cancel()
 
         # Figure out how much time our agent took.
