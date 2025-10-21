@@ -34,8 +34,11 @@ hvac>=1.1.0
 # For LLM access
 # Keep all these guys limited for now, as it can be the wild wild west out there
 # We don't want to be on a dependencies treadmill with timing not of our choosing.
-langchain>=0.3.15,<1.1
-langchain-community>=0.3.19,<1.1
+langchain>=1.0.0,<1.1
+langchain-core>=1.0.0,<1.1
+langchain-classic>=1.0.0,<1.1
+langchain-community>=0.4,<1.1
+langgraph>=1.0.0,<1.1
 openai>=1.54.1,<2.0
 bs4>=0.0.2,<0.1
 pydantic>=2.9.2,<3.0

@@ -27,19 +27,19 @@ from logging import getLogger
 
 from pydantic_core import ValidationError
 
-from langchain_classic.agents import Agent
-from langchain_classic.agents import AgentExecutor
-from langchain_classic.agents.tool_calling_agent.base import create_tool_calling_agent
+from langchain.agents.factory import create_agent
 from langchain_classic.callbacks.tracers.logging import LoggingCallbackHandler
+from langchain_core.agents import AgentFinish
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.language_models.base import BaseLanguageModel
 from langchain_core.messages.ai import AIMessage
 from langchain_core.messages.base import BaseMessage
 from langchain_core.messages.human import HumanMessage
 from langchain_core.messages.system import SystemMessage
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import Runnable
-from langchain_core.tools import BaseTool
+from langchain_core.prompts.chat import ChatPromptTemplate
+from langchain_core.runnables.base import Runnable
+from langchain_core.runnables.passthrough import RunnablePassthrough
+from langchain_core.tools.base import BaseTool
 
 from leaf_common.config.resolver_util import ResolverUtil
 
@@ -112,7 +112,7 @@ class LangChainRunContext(RunContext):
         self.chat_history: List[BaseMessage] = []
         self.journal: OriginatingJournal = None
         self.llm_resources: LangChainLlmResources = None
-        self.agent: Agent = None
+        self.agent_chain: Runnable = None
 
         # This might get modified in create_resources() (for now)
         self.llm_config: Dict[str, Any] = llm_config
@@ -202,17 +202,17 @@ class LangChainRunContext(RunContext):
 
         prompt_template: ChatPromptTemplate = await self._create_prompt_template(instructions)
 
-        self.agent = self.create_agent_with_fallbacks(prompt_template)
+        self.agent_chain = self.create_agent_with_fallbacks(prompt_template)
         self.resources_created = True
 
-    def create_agent_with_fallbacks(self, prompt_template: ChatPromptTemplate) -> Agent:
+    def create_agent_with_fallbacks(self, prompt_template: ChatPromptTemplate) -> Runnable:
         """
         Creates an agent with potential fallback llms to use.
         :param prompt_template: The ChatPromptTemplate to use for the agent
         :return: An Agent (Runnable)
         """
         # Initialize our return value
-        agent: Agent = None
+        agent: Runnable = None
 
         # Get the factory we will use
         llm_factory: ContextTypeLlmFactory = self.invocation_context.get_llm_factory()
@@ -229,7 +229,7 @@ class LangChainRunContext(RunContext):
 
             # Create a model we might use.
             one_llm_resources: LangChainLlmResources = llm_factory.create_llm(fallback)
-            one_agent: Agent = self.create_agent(prompt_template, one_llm_resources.get_model())
+            one_agent: Runnable = self.create_agent(prompt_template, one_llm_resources.get_model())
 
             if index == 0:
                 # The first agent is the one we want to be our main guy.
@@ -247,7 +247,7 @@ class LangChainRunContext(RunContext):
 
         return agent
 
-    def create_agent(self, prompt_template: ChatPromptTemplate, llm: BaseLanguageModel) -> Agent:
+    def create_agent(self, prompt_template: ChatPromptTemplate, llm: BaseLanguageModel) -> Runnable:
         """
         Creates an agent.
         :param prompt_template: The ChatPromptTemplate to use for the agent
@@ -255,34 +255,25 @@ class LangChainRunContext(RunContext):
         :return: An Agent (Runnable)
         """
         # Initialize our return value
-        agent: Agent = None
+        agent: Runnable = None
 
+        # Determine how complex the meat of our agent chain will be
+        meat: Runnable = llm
         if len(self.tools) > 0:
-            agent = create_tool_calling_agent(llm, self.tools, prompt_template)
+            meat = create_agent(model=llm, tools=self.tools)
 
-            # The above call creates a chain in this order:
-            #   first:  RunnablePassthrough
-            #   middle: prompt
-            #           llm_with_tools
-            #   last:   ToolsAgentOutputParser
-            #
-            # ... we need to mess with that a bit
+        # This uses LangChain Expression Language (LCEL), which enables a functional, pipeline-style composition
+        # using "|". Here, we pass `agent_scratchpad` in the input message, but since we don't explicitly assign it
+        # to `intermediate_steps` (as done in the old `create_tool_calling_agent`), it remains unused by the prompt.
+        #
+        # In contrast, the old `create_tool_calling_agent` can be written in LCEL as
+        # RunnablePassthrough | prompt | llm_with_tools | ToolsAgentOutputParser
+        # where RunnablePassthrough `agent scratchpad` convert (AgentAction, tool output) tuples into ToolMessages.
+        #
+        # By skipping this step, our agent functions as a pure LLM-driven system with a defined role,
+        # without tool invocation logic influencing its decision-making.
 
-            # Replace the output parser from the call above.
-            # Per empirical experience, this is "last".
-            agent.last = JournalingToolsAgentOutputParser(self.journal)
-        else:
-            # This uses LangChain Expression Language (LCEL), which enables a functional, pipeline-style composition
-            # using "|". Here, we pass `agent_scratchpad` in the input message, but since we don't explicitly assign it
-            # to `intermediate_steps` (as done in `create_tool_calling_agent`), it remains unused by the prompt.
-            #
-            # In contrast, `create_tool_calling_agent` can be written in LCEL as
-            # RunnablePassthrough | prompt | llm_with_tools | ToolsAgentOutputParser
-            # where RunnablePassthrough `agent scratchpad` convert (AgentAction, tool output) tuples into ToolMessages.
-            #
-            # By skipping this step, our agent functions as a pure LLM-driven system with a defined role,
-            # without tool invocation logic influencing its decision-making.
-            agent = prompt_template | llm | JournalingToolsAgentOutputParser(self.journal)
+        agent = RunnablePassthrough() | prompt_template | meat | JournalingToolsAgentOutputParser()
 
         return agent
 
@@ -564,14 +555,11 @@ class LangChainRunContext(RunContext):
         if isinstance(verbose, str):
             verbose = bool(verbose.lower() in ("true", "extra", "logging"))
 
-        max_execution_seconds: float = agent_spec.get("max_execution_seconds",
-                                                      2.0 * MINUTES)
+        max_execution_seconds: float = agent_spec.get("max_execution_seconds", 2.0 * MINUTES)
+
+        # Per advice from https://python.langchain.com/docs/how_to/migrate_agent/#max_iterations
         max_iterations: int = agent_spec.get("max_iterations", 20)
-        agent_executor = AgentExecutor(agent=self.agent,
-                                       tools=self.tools,
-                                       max_execution_time=max_execution_seconds,
-                                       max_iterations=max_iterations,
-                                       verbose=verbose)
+        recursion_limit: int = max_iterations * 2 + 1
 
         run: Run = LangChainRun(self.run_id_base, self.chat_history)
 
@@ -604,7 +592,8 @@ class LangChainRunContext(RunContext):
             "configurable": {
                 "session_id": run.get_id()
             },
-            "callbacks": callbacks
+            "callbacks": callbacks,
+            "recursion_limit": recursion_limit
         }
 
         # Chat history is updated in write_message
@@ -613,15 +602,14 @@ class LangChainRunContext(RunContext):
         # Attempt to count tokens/costs while invoking the agent.
         llm: BaseLanguageModel = self.llm_resources.get_model()
         token_counter = LangChainTokenCounter(llm, self.invocation_context, self.journal)
-        await token_counter.count_tokens(self.ainvoke(agent_executor, inputs, invoke_config))
+        await token_counter.count_tokens(self.ainvoke(inputs, invoke_config), max_execution_seconds)
 
         return run
 
-    async def ainvoke(self, agent_executor: AgentExecutor, inputs: Dict[str, Any], invoke_config: Dict[str, Any]):
+    async def ainvoke(self, inputs: Dict[str, Any], invoke_config: Dict[str, Any]):
         """
         Set the agent in motion
 
-        :param agent_executor: The AgentExecutor to invoke
         :param inputs: The inputs to the agent_executor
         :param invoke_config: The invoke_config to send to the agent_executor
         """
@@ -631,7 +619,7 @@ class LangChainRunContext(RunContext):
         backtrace: str = None
         while return_dict is None and retries > 0:
             try:
-                return_dict: Dict[str, Any] = await agent_executor.ainvoke(inputs, invoke_config)
+                return_dict: Dict[str, Any] = await self.agent_chain.ainvoke(input=inputs, config=invoke_config)
             except API_ERROR_TYPES as api_error:
                 backtrace = traceback.format_exc()
                 message: str = None
@@ -673,6 +661,8 @@ class LangChainRunContext(RunContext):
         if return_dict is None and exception is not None:
             output = f"Agent stopped due to exception {exception}"
         else:
+            if isinstance(return_dict, AgentFinish):
+                return_dict = return_dict.return_values
             # Other keys generally available at this point from return_dict are
             # "chat_history" and "input".
             output = return_dict.get("output", "")
@@ -826,7 +816,7 @@ class LangChainRunContext(RunContext):
 
         self.tools = []
         self.chat_history = []
-        self.agent = None
+        self.agent_chain = None
         self.recent_human_message = None
         self.llm_resources = None
         self.journal = None
