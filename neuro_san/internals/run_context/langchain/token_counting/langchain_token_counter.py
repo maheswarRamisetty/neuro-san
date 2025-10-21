@@ -69,7 +69,7 @@ class LangChainTokenCounter:
         self.journal: OriginatingJournal = journal
         self.debug: bool = False
 
-    async def count_tokens(self, awaitable: Awaitable, max_execution_seconds: float) -> Any:
+    async def count_tokens(self, awaitable: Awaitable, max_execution_seconds: float = None) -> Any:
         """
         Counts the tokens (if possible) from what happens inside the awaitable
         within a separate context.  If tokens are counted, they are added to
@@ -82,7 +82,8 @@ class LangChainTokenCounter:
                 baz = await token_counter.count_tokens(myinstance.foo(bar)).
 
         :param awaitable: The awaitable whose tokens we wish to count.
-        :param max_execution_seconds: The maximum amount of time to execute the awaitable
+        :param max_execution_seconds: The maximum amount of time to execute the awaitable.
+                        If None, the awaitable is executed to completion.
         :return: Whatever the awaitable would return
         """
 
