@@ -555,7 +555,7 @@ class LangChainRunContext(RunContext):
         if isinstance(verbose, str):
             verbose = bool(verbose.lower() in ("true", "extra", "logging"))
 
-        # max_execution_seconds: float = agent_spec.get("max_execution_seconds", 2.0 * MINUTES)
+        max_execution_seconds: float = agent_spec.get("max_execution_seconds", 2.0 * MINUTES)
 
         # Per advice from https://python.langchain.com/docs/how_to/migrate_agent/#max_iterations
         max_iterations: int = agent_spec.get("max_iterations", 20)
@@ -602,7 +602,7 @@ class LangChainRunContext(RunContext):
         # Attempt to count tokens/costs while invoking the agent.
         llm: BaseLanguageModel = self.llm_resources.get_model()
         token_counter = LangChainTokenCounter(llm, self.invocation_context, self.journal)
-        await token_counter.count_tokens(self.ainvoke(inputs, invoke_config))
+        await token_counter.count_tokens(self.ainvoke(inputs, invoke_config), max_execution_seconds)
 
         return run
 

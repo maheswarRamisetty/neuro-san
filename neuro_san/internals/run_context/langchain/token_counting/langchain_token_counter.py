@@ -17,6 +17,8 @@ from typing import List
 from typing import Union
 
 from asyncio import Task
+from asyncio import TimeoutError
+from asyncio import wait_for
 from contextvars import Context
 from contextvars import ContextVar
 from contextvars import copy_context
@@ -67,7 +69,7 @@ class LangChainTokenCounter:
         self.journal: OriginatingJournal = journal
         self.debug: bool = False
 
-    async def count_tokens(self, awaitable: Awaitable) -> Any:
+    async def count_tokens(self, awaitable: Awaitable, max_execution_seconds: float) -> Any:
         """
         Counts the tokens (if possible) from what happens inside the awaitable
         within a separate context.  If tokens are counted, they are added to
@@ -80,6 +82,7 @@ class LangChainTokenCounter:
                 baz = await token_counter.count_tokens(myinstance.foo(bar)).
 
         :param awaitable: The awaitable whose tokens we wish to count.
+        :param max_execution_seconds: The maximum amount of time to execute the awaitable
         :return: Whatever the awaitable would return
         """
 
@@ -118,7 +121,10 @@ class LangChainTokenCounter:
             # and use the create_task() to run within that context.
             new_context: Context = copy_context()
             task: Task = new_context.run(self.create_task, awaitable)
-            retval = await task
+            try:
+                retval = await wait_for(task, max_execution_seconds)
+            except TimeoutError:
+                await task.cancel()
 
         # Figure out how much time our agent took.
         end_time: float = time()
