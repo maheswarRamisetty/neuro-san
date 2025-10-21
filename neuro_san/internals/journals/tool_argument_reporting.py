@@ -21,6 +21,8 @@ class ToolArgumentReporting:
     Utility class to assist in preparing arguments dictionaries when reporing starting a tool.
     """
 
+    POLICY_OBJECT_KEYS: List[str] = ["reservationist", "progress_reporter"]
+
     @staticmethod
     def prepare_tool_start_dict(tool_args: Dict[str, Any],
                                 origin: List[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -40,7 +42,7 @@ class ToolArgumentReporting:
             modified_tool_args["origin_str"] = full_name
 
         # Remove policy object keys from the args that cannot be serialized in a message.
-        for key in ["reservationist", "progress_reporter"]:
+        for key in ToolArgumentReporting.POLICY_OBJECT_KEYS:
             if key in modified_tool_args:
                 del modified_tool_args[key]
 
