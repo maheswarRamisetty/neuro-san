@@ -26,6 +26,7 @@ from langchain_core.outputs.chat_generation import ChatGeneration
 
 from neuro_san.internals.journals.journal import Journal
 from neuro_san.internals.journals.originating_journal import OriginatingJournal
+from neuro_san.internals.journals.tool_argument_reporting import ToolArgumentReporting
 from neuro_san.internals.messages.agent_message import AgentMessage
 from neuro_san.internals.messages.agent_tool_result_message import AgentToolResultMessage
 from neuro_san.internals.messages.origination import Origination
@@ -144,27 +145,12 @@ class JournalingCallbackHandler(AsyncCallbackHandler):
 
             # Build the origin path
             self.origin: List[Dict[str, Any]] = self.origination.add_spec_name_to_origin(self.parent_origin, agent_name)
-            full_name: str = self.origination.get_full_name_from_origin(self.origin)
 
-            # Combine the original tool inputs with origin metadata
-            combined_args: Dict[str, Any] = inputs.copy()
-            combined_args["origin"] = self.origin
-            combined_args["origin_str"] = full_name
-
-            # Remove any reservationist from the args as that will not transfer over the wire
-            if "reservationist" in combined_args:
-                del combined_args["reservationist"]
-
-            # Remove any progress_reporter from the args as that will not transfer over the wire
-            if "progress_reporter" in combined_args:
-                del combined_args["progress_reporter"]
+            # Build the tool start dictionary we will report
+            combined_args_dict: Dict[str, Any] = ToolArgumentReporting.prepare_tool_start_dict(inputs, self.origin)
 
             # Create a journal entry for this invocation and log the combined inputs
             self.langchain_tool_journal = OriginatingJournal(self.base_journal, self.origin)
-            combined_args_dict: Dict[str, Any] = {
-                "tool_start": True,
-                "tool_args": combined_args
-            }
             message: BaseMessage = AgentMessage(content="Received arguments:", structure=combined_args_dict)
             await self.langchain_tool_journal.write_message(message)
 

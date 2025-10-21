@@ -34,6 +34,7 @@ from neuro_san.internals.graph.interfaces.agent_tool_factory import AgentToolFac
 from neuro_san.internals.interfaces.invocation_context import InvocationContext
 from neuro_san.internals.journals.journal import Journal
 from neuro_san.internals.journals.progress_journal import ProgressJournal
+from neuro_san.internals.journals.tool_argument_reporting import ToolArgumentReporting
 from neuro_san.internals.messages.agent_message import AgentMessage
 from neuro_san.internals.messages.origination import Origination
 from neuro_san.internals.reservations.accumulating_agent_reservationist import AccumulatingAgentReservationist
@@ -250,21 +251,7 @@ Some hints:
         """
         retval: Any = None
 
-        tool_args: Dict[str, Any] = arguments.copy()
-
-        # Remove any reservationist from the args as that will not transfer over the wire
-        if "reservationist" in tool_args:
-            del tool_args["reservationist"]
-
-        # Need to remove class references from the args that will not transfer over the wire
-        if "progress_reporter" in tool_args:
-            del tool_args["progress_reporter"]
-
-        arguments_dict: Dict[str, Any] = {
-            "tool_start": True,
-            "tool_args": tool_args
-        }
-
+        arguments_dict: Dict[str, Any] = ToolArgumentReporting.preprare_tool_start_dict(arguments)
         message = AgentMessage(content="Received arguments:", structure=arguments_dict)
         await self.journal.write_message(message)
 
