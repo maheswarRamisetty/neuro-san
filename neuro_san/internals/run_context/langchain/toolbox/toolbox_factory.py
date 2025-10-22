@@ -80,13 +80,11 @@ class ToolboxFactory(ContextTypeToolboxFactory):
         self.overlayer = DictionaryOverlay()
 
         # Get user toolbox info file path with the following priority:
-        # 1. "agent_toolbox_info_file" from agent network hocon
-        # 2. "toolbox_info_file" from agent network hocon
-        # 3. "AGENT_TOOLBOX_INFO_FILE" from environment variable
+        # 1. "toolbox_info_file" from agent network hocon
+        # 2. "AGENT_TOOLBOX_INFO_FILE" from environment variable
         if config:
             raw_toolbox_info_file: str = (
-                config.get("agent_toolbox_info_file")
-                or config.get("toolbox_info_file")
+                config.get("toolbox_info_file")
                 or os.getenv("AGENT_TOOLBOX_INFO_FILE")
             )
         else:
@@ -94,7 +92,7 @@ class ToolboxFactory(ContextTypeToolboxFactory):
 
         if raw_toolbox_info_file is not None and not isinstance(raw_toolbox_info_file, str):
             raise TypeError(
-                "The values of 'agent_toolbox_info_file', 'toolbox_info_file', and "
+                "The values of 'toolbox_info_file' and "
                 "the 'AGENT_TOOLBOX_INFO_FILE' environment variable must be strings. "
                 f"Got {type(raw_toolbox_info_file).__name__} instead."
             )

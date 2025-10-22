@@ -84,13 +84,11 @@ class DefaultLlmFactory(ContextTypeLlmFactory, LangChainLlmFactory):
         ]
 
         # Get user LLM info file path with the following priority:
-        # 1. "agent_llm_info_file" from agent network hocon
-        # 2. "llm_info_file" from agent network hocon
-        # 3. "AGENT_LLM_INFO_FILE" from environment variable
+        # 1. "llm_info_file" from agent network hocon
+        # 2. "AGENT_LLM_INFO_FILE" from environment variable
         if config:
             raw_llm_info_file: str = (
-                config.get("agent_llm_info_file")
-                or config.get("llm_info_file")
+                config.get("llm_info_file")
                 or os.getenv("AGENT_LLM_INFO_FILE")
             )
         else:
@@ -98,7 +96,7 @@ class DefaultLlmFactory(ContextTypeLlmFactory, LangChainLlmFactory):
 
         if raw_llm_info_file is not None and not isinstance(raw_llm_info_file, str):
             raise TypeError(
-                "The values of 'agent_llm_info_file', 'llm_info_file', and "
+                "The values of 'llm_info_file' and "
                 "the 'AGENT_LLM_INFO_FILE' environment variable must be strings. "
                 f"Got {type(raw_llm_info_file).__name__} instead."
             )
