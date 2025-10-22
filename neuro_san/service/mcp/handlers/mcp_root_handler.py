@@ -20,6 +20,7 @@ from typing import List
 from typing import Dict
 
 import jsonschema
+from http import HTTPStatus
 
 from neuro_san.internals.interfaces.dictionary_validator import DictionaryValidator
 from neuro_san.service.http.handlers.base_request_handler import BaseRequestHandler
@@ -34,6 +35,7 @@ from neuro_san.service.mcp.processors.mcp_tools_processor import MCPToolsProcess
 from neuro_san.service.mcp.processors.mcp_resources_processor import MCPResourcesProcessor
 from neuro_san.service.mcp.processors.mcp_prompts_processor import MCPPromptsProcessor
 from neuro_san.service.mcp.processors.mcp_initialize_processor import MCPInitializeProcessor
+from neuro_san.service.mcp.processors.mcp_ping_processor import MCPPingProcessor
 
 
 class MCPRootHandler(BaseRequestHandler):
@@ -95,7 +97,7 @@ class MCPRootHandler(BaseRequestHandler):
                 extra_error: str = "; ".join(validation_errors)
                 error_msg: Dict[str, Any] =\
                     MCPErrorsUtil.get_protocol_error(request_id, MCPError.InvalidRequest, extra_error)
-                self.set_status(400)
+                self.set_status(HTTPStatus.BAD_REQUEST)
                 self.write(error_msg)
                 self.logger.error(self.get_metadata(), f"Error: Invalid MCP request: {extra_error}")
                 self.do_finish()
@@ -103,7 +105,7 @@ class MCPRootHandler(BaseRequestHandler):
         except json.JSONDecodeError as exc:
             error_msg: Dict[str, Any] = \
                 MCPErrorsUtil.get_protocol_error(request_id, MCPError.ParseError, str(exc))
-            self.set_status(400)
+            self.set_status(HTTPStatus.BAD_REQUEST)
             self.write(error_msg)
             self.logger.error(self.get_metadata(), "error: Invalid JSON format")
             self.do_finish()
@@ -120,7 +122,7 @@ class MCPRootHandler(BaseRequestHandler):
                 handshake_processor: MCPInitializeProcessor = MCPInitializeProcessor(self.mcp_context, self.logger)
                 result_dict, session_id = await handshake_processor.initialize_handshake(request_id, metadata, data["params"])
                 self.set_header(MCP_SESSION_ID, session_id)
-                self.set_status(200)
+                self.set_status(HTTPStatus.OK)
                 self.write(result_dict)
                 request_done = True
             elif method == "notifications/initialized":
@@ -128,15 +130,24 @@ class MCPRootHandler(BaseRequestHandler):
                 # this activates the session on the server side for further operations.
                 handshake_processor: MCPInitializeProcessor = MCPInitializeProcessor(self.mcp_context, self.logger)
                 result: bool = await handshake_processor.activate_session(session_id, metadata)
-                response_code: int = 202 if result else 404
+                response_code: int = HTTPStatus.ACCEPTED if result else HTTPStatus.NOT_FOUND
                 self.set_header(MCP_SESSION_ID, session_id)
+                self.set_status(response_code)
+                # We do not have any response body for this request
+                request_done = True
+            elif method == "ping":
+                # Handle client-side ping,
+                # we don't care about sessions here.
+                ping_processor: MCPPingProcessor= MCPPingProcessor(self.logger)
+                result: Dict[str, Any] = await ping_processor.ping(session_id, metadata)
+                response_code: int = HTTPStatus.OK
                 self.set_status(response_code)
                 # We do not have any response body for this request
                 request_done = True
         except Exception as exc:  # pylint: disable=broad-exception-caught
             error_msg: Dict[str, Any] = \
                 MCPErrorsUtil.get_protocol_error(request_id, MCPError.ServerError, str(exc))
-            self.set_status(500)
+            self.set_status(HTTPStatus.INTERNAL_SERVER_ERROR)
             self.write(error_msg)
             self.logger.error(self.get_metadata(), "error: Server error")
             request_done = True
@@ -155,7 +166,7 @@ class MCPRootHandler(BaseRequestHandler):
             extra_error: str = "invalid or inactive session id"
             error_msg: Dict[str, Any] =\
                 MCPErrorsUtil.get_protocol_error(request_id, MCPError.InvalidSession, extra_error)
-            self.set_status(401)
+            self.set_status(HTTPStatus.UNAUTHORIZED)
             self.write(error_msg)
             self.logger.error(self.get_metadata(), f"error: {extra_error}")
             self.do_finish()
@@ -165,7 +176,7 @@ class MCPRootHandler(BaseRequestHandler):
             if method == "tools/list":
                 tools_processor: MCPToolsProcessor = MCPToolsProcessor(self.logger, self.network_storage_dict, self.agent_policy)
                 result_dict: Dict[str, Any] = await tools_processor.list_tools(request_id, metadata)
-                self.set_status(200)
+                self.set_status(HTTPStatus.OK)
                 self.write(result_dict)
             elif method == "tools/call":
                 tools_processor: MCPToolsProcessor = MCPToolsProcessor(self.logger, self.network_storage_dict, self.agent_policy)
@@ -173,30 +184,30 @@ class MCPRootHandler(BaseRequestHandler):
                 tool_name: str = call_params.get("name")
                 prompt: str = call_params.get("arguments", {}).get("input", "")
                 result_dict: Dict[str, Any] = await tools_processor.call_tool(request_id, metadata, tool_name, prompt)
-                self.set_status(200)
+                self.set_status(HTTPStatus.OK)
                 self.write(result_dict)
             elif method == "resources/list":
                 resources_processor: MCPResourcesProcessor = MCPResourcesProcessor(self.logger)
                 result_dict: Dict[str, Any] = await resources_processor.list_resources(request_id, metadata)
-                self.set_status(200)
+                self.set_status(HTTPStatus.OK)
                 self.write(result_dict)
             elif method == "prompts/list":
                 prompts_processor: MCPPromptsProcessor = MCPPromptsProcessor(self.logger)
                 result_dict: Dict[str, Any] = await prompts_processor.list_resources(request_id, metadata)
-                self.set_status(200)
+                self.set_status(HTTPStatus.OK)
                 self.write(result_dict)
             else:
                 # Method is not found/not supported
                 extra_error: str = f"method {method} not found"
                 error_msg: Dict[str, Any] =\
                     MCPErrorsUtil.get_protocol_error(request_id, MCPError.NoMethod, extra_error)
-                self.set_status(400)
+                self.set_status(HTTPStatus.BAD_REQUEST)
                 self.write(error_msg)
                 self.logger.error(self.get_metadata(), f"error: Method {method} not found")
         except Exception as exc:  # pylint: disable=broad-exception-caught
             error_msg: Dict[str, Any] =\
                 MCPErrorsUtil.get_protocol_error(request_id, MCPError.ServerError, str(exc))
-            self.set_status(500)
+            self.set_status(HTTPStatus.INTERNAL_SERVER_ERROR)
             self.write(error_msg)
             self.logger.error(self.get_metadata(), "error: Server error")
         finally:
@@ -219,7 +230,7 @@ class MCPRootHandler(BaseRequestHandler):
         if session_id is not None:
             print(f"D>>> session: {session_id}")
 
-        request_status: int = 204
+        request_status: int = HTTPStatus.NO_CONTENT
         if session_id is not None:
             session_manager: MCPSessionManager = self.mcp_context.get_session_manager()
             deleted: bool = session_manager.delete_session(session_id)
@@ -229,19 +240,19 @@ class MCPRootHandler(BaseRequestHandler):
                 extra_error: str = "Session id not found"
                 error_msg: Dict[str, Any] =\
                     MCPErrorsUtil.get_protocol_error(request_id, MCPError.InvalidSession, extra_error)
-                self.set_status(404)
+                self.set_status(HTTPStatus.NOT_FOUND)
                 self.write(error_msg)
                 self.logger.error(metadata, f"Error: {extra_error}")
         else:
             # No session id is provided in this request:
             # report bad request
-            request_status = 401
+            request_status = HTTPStatus.UNAUTHORIZED
         self.set_status(request_status)
         self.do_finish()
 
     async def get(self):
         # Consider GET request for MCP endpoint to be a service health check
-        self.set_status(200)
+        self.set_status(HTTPStatus.OK)
         self.do_finish()
 
 

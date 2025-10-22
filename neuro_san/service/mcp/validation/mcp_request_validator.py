@@ -38,7 +38,7 @@ class MCPRequestValidator(DictionaryValidator):
         try:
             jsonschema.validate(instance=candidate, schema=self.validation_schema)
         except jsonschema.exceptions.ValidationError as exc:
-            return [f"Request validation: {str(exc)}"]
+            return [f"Request validation FAILED for MCP request: {candidate}"]
         except Exception as exc:  # pylint: disable=broad-exception-caught
             return [f"Validation exception: {str(exc)}"]
         return None
