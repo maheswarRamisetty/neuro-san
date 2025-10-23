@@ -191,7 +191,6 @@ class JournalingCallbackHandler(AsyncCallbackHandler):
         :param output: The result produced by the tool after execution.
         :param run_id: Unique identifier for the tool execution instance.
         :param tags: List of tags associated with the tool. Used to determine whether it is a LangChain tool.
-        :param name: The name of the tool that has finished execution.
         """
 
         if "langchain_tool" in tags:
