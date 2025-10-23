@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from typing import Any
 from typing import Dict
 from typing import List
+from uuid import UUID
 
 from pydantic import ConfigDict
 
@@ -91,8 +92,11 @@ class JournalingCallbackHandler(AsyncCallbackHandler):
         self.base_journal: Journal = base_journal
         self.parent_origin: List[Dict[str, Any]] = parent_origin
         self.origination: Origination = origination
-        self.langchain_tool_journal: Journal = None
-        self.origin: List[Dict[str, Any]] = None
+
+        # Store per-invocation data keyed by run_id
+        # This is to prevent incorrect tool names in the journals due to race condition issue.
+        self._tool_journals: Dict[str, Journal] = {}
+        self._tool_origins: Dict[str, List[Dict[str, Any]]] = {}
 
     async def on_llm_end(self, response: LLMResult,
                          **kwargs: Any) -> None:
@@ -117,10 +121,13 @@ class JournalingCallbackHandler(AsyncCallbackHandler):
         # print(f"In on_chain_end() with {outputs}")
         return
 
+    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
     async def on_tool_start(
         self,
         serialized: Dict[str, Any],
         input_str: str,
+        run_id: UUID = None,
         tags: List[str] = None,
         inputs: Dict[str, Any] = None,
         **kwargs: Any
@@ -134,6 +141,7 @@ class JournalingCallbackHandler(AsyncCallbackHandler):
 
         :param serialized: Serialized representation of the tool, including its name and description.
         :param input_str: String representation of the tool's input.
+        :param run_id: Unique identifier for the tool execution instance.
         :param tags: List of tags associated with the tool. Used to determine whether it is a LangChain tool.
         :param inputs: Structured dictionary of input arguments
             passed to the tool.
@@ -141,7 +149,6 @@ class JournalingCallbackHandler(AsyncCallbackHandler):
 
         # Extract tool name from the serialized data
         agent_name: str = serialized.get("name")
-
         # Remove any policy objects from the arguments passed in.
         tool_start_dict: Dict[str, Any] = ToolArgumentReporting.prepare_tool_start_dict(inputs)
         caller_structure: Dict[str, Any] = {
@@ -158,18 +165,22 @@ class JournalingCallbackHandler(AsyncCallbackHandler):
         if "langchain_tool" in tags:
 
             # Build the origin path
-            self.origin: List[Dict[str, Any]] = self.origination.add_spec_name_to_origin(self.parent_origin, agent_name)
+            origin: List[Dict[str, Any]] = self.origination.add_spec_name_to_origin(self.parent_origin, agent_name)
+            # Store the origin for this run_id
+            self._tool_origins[run_id] = origin
 
             # Re-build the tool start dictionary we will report with tool origin information
             # for the langchain tool's journal.
-            tool_start_dict = ToolArgumentReporting.prepare_tool_start_dict(inputs, self.origin)
+            tool_start_dict = ToolArgumentReporting.prepare_tool_start_dict(inputs, origin)
 
             # Create a journal entry for this invocation and log the combined inputs
-            self.langchain_tool_journal = OriginatingJournal(self.base_journal, self.origin)
+            langchain_tool_journal = OriginatingJournal(self.base_journal, origin)
+            # Store the journal for this run_id
+            self._tool_journals[run_id] = langchain_tool_journal
             message = AgentMessage(content="Received arguments:", structure=tool_start_dict)
-            await self.langchain_tool_journal.write_message(message)
+            await langchain_tool_journal.write_message(message)
 
-    async def on_tool_end(self, output: Any, tags: List[str] = None, **kwargs: Any) -> None:
+    async def on_tool_end(self, output: Any, run_id: UUID = None, tags: List[str] = None, **kwargs: Any) -> None:
         """
         Callback triggered when a tool finishes execution.
 
@@ -178,7 +189,9 @@ class JournalingCallbackHandler(AsyncCallbackHandler):
         LangChain tool's specific journal.
 
         :param output: The result produced by the tool after execution.
+        :param run_id: Unique identifier for the tool execution instance.
         :param tags: List of tags associated with the tool. Used to determine whether it is a LangChain tool.
+        :param name: The name of the tool that has finished execution.
         """
 
         if "langchain_tool" in tags:
@@ -188,8 +201,13 @@ class JournalingCallbackHandler(AsyncCallbackHandler):
             if isinstance(output, ToolMessage):
                 output = output.content
 
+            # Retrieve the correct journal and origin for this run_id
+            origin = self._tool_origins.get(run_id)
+            langchain_tool_journal = self._tool_journals.get(run_id)
+
+            # Log the tool output to the calling agent's journal
             await self.calling_agent_journal.write_message(
-                AgentToolResultMessage(content=str(output), tool_result_origin=self.origin)
+                AgentToolResultMessage(content=str(output), tool_result_origin=origin)
             )
 
             # Also log the tool output to the LangChain tool-specific journal
@@ -198,7 +216,7 @@ class JournalingCallbackHandler(AsyncCallbackHandler):
                 "tool_output": output
             }
             message: BaseMessage = AgentMessage(content="Got result:", structure=output_dict)
-            await self.langchain_tool_journal.write_message(message)
+            await langchain_tool_journal.write_message(message)
 
     async def on_agent_action(self, action: AgentAction,
                               **kwargs: Any) -> None:
