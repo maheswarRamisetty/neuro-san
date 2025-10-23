@@ -585,13 +585,19 @@ class LangChainRunContext(RunContext):
             # to the logs.  Add this because some people are interested in it.
             callbacks.append(LoggingCallbackHandler(self.logger))
 
+        # Set up a run name for tracing purposes
+        metadata: Dict[str, Any] = self.invocation_context.get_metadata()
+        run_name: str = metadata.get("request_id", "<unknown>") + "-" + \
+            Origination.get_full_name_from_origin(self.origin)
+
         # Add callbacks as an invoke config
         invoke_config = {
             "configurable": {
                 "session_id": run.get_id()
             },
             "callbacks": callbacks,
-            "recursion_limit": recursion_limit
+            "recursion_limit": recursion_limit,
+            "run_name": run_name
         }
 
         # Chat history is updated in write_message
