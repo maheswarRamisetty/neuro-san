@@ -264,7 +264,7 @@ class LangChainRunContext(RunContext):
         # By skipping this step, our agent functions as a pure LLM-driven system with a defined role,
         # without tool invocation logic influencing its decision-making.
 
-        agent = prompt_template | meat | self.passthrough
+        agent = prompt_template | meat
 
         return agent
 
@@ -360,6 +360,7 @@ class LangChainRunContext(RunContext):
         callbacks: List[BaseCallbackHandler] = [
             JournalingCallbackHandler(self.journal, base_journal, parent_origin, origination)
         ]
+
         # Consult the agent spec for level of verbosity as it pertains to callbacks.
         agent_spec: Dict[str, Any] = self.tool_caller.get_agent_tool_spec()
         verbose: Union[bool, str] = agent_spec.get("verbose", False)
@@ -368,20 +369,7 @@ class LangChainRunContext(RunContext):
             # to the logs.  Add this because some people are interested in it.
             callbacks.append(LoggingCallbackHandler(self.logger))
 
-        # Set up a run name for tracing purposes
-        metadata: Dict[str, Any] = self.invocation_context.get_metadata()
-        run_name: str = metadata.get("request_id", "<unknown>") + "-" + \
-            Origination.get_full_name_from_origin(self.origin)
-
-        # Add callbacks as an invoke config
-        invoke_config = {
-            "configurable": {
-                "session_id": run.get_id()
-            },
-            "callbacks": callbacks,
-            "recursion_limit": recursion_limit,
-            "run_name": run_name
-        }
+        runnable_config: Dict[str, Any] = self.prepare_runnable_config(callbacks, run.get_id(), recursion_limit)
 
         # Chat history is updated in write_message
         await self.journal.write_message(self.recent_human_message)
@@ -389,16 +377,61 @@ class LangChainRunContext(RunContext):
         # Attempt to count tokens/costs while invoking the agent.
         llm: BaseLanguageModel = self.llm_resources.get_model()
         token_counter = LangChainTokenCounter(llm, self.invocation_context, self.journal, self.origin)
-        await token_counter.count_tokens(self.ainvoke(inputs, invoke_config), max_execution_seconds)
+        await token_counter.count_tokens(self.invoke_agent_chain(inputs, runnable_config), max_execution_seconds)
 
         return run
 
-    async def ainvoke(self, inputs: Dict[str, Any], invoke_config: Dict[str, Any]):
+    def prepare_runnable_config(self, callbacks: List[BaseCallbackHandler],
+                                session_id: str,
+                                recursion_limit: int) -> Dict[str, Any]:
+        """
+        Prepare a RunnableConfig for a Runnable invocation.  See:
+        https://python.langchain.com/api_reference/core/runnables/langchain_core.runnables.config.RunnableConfig.html
+
+        :param recursion_limit: Maximum number of times a call can recurse.
+        :return: A dictionary to be used for a Runnable's invoke config.
+        """
+
+        # Set up a run name for tracing purposes
+        request_metadata: Dict[str, Any] = self.invocation_context.get_metadata()
+        request_id: str = request_metadata.get("request_id")
+        request_prefix: str = ""
+        if request_id is not None:
+            request_prefix = f"{request_id}-"
+        origin_name: str = Origination.get_full_name_from_origin(self.origin)
+        run_name: str = f"{request_prefix}{origin_name}"
+
+        # Add callbacks as an invoke config
+        runnable_config: Dict[str, Any] = {
+            "configurable": {
+                "session_id": session_id
+            },
+            "callbacks": callbacks,
+            "recursion_limit": recursion_limit,
+            "run_name": run_name
+        }
+
+        # Maybe add metadata to the config
+        # DEF - get this from AGENT_USAGE_LOGGER_METADATA list. Plumbing likely required.
+        runnable_keys: List[str] = ["request_id", "user_id"]
+        runnable_metadata: Dict[str, Any] = {}
+        for key in runnable_keys:
+            value: Any = request_metadata.get(key)
+            if value is not None:
+                runnable_metadata[key] = value
+
+        # Only add metadata if we have something
+        if runnable_metadata:
+            runnable_config["metadata"] = runnable_metadata
+
+        return runnable_config
+
+    async def invoke_agent_chain(self, inputs: Dict[str, Any], runnable_config: Dict[str, Any]):
         """
         Set the agent in motion
 
         :param inputs: The inputs to the agent_executor
-        :param invoke_config: The invoke_config to send to the agent_executor
+        :param runnable_config: The runnable_config to send to the agent_executor
         """
         chain_result: Union[Dict[str, Any], AgentFinish, AIMessage] = None
         retries: int = 3
@@ -406,7 +439,7 @@ class LangChainRunContext(RunContext):
         backtrace: str = None
         while chain_result is None and retries > 0:
             try:
-                chain_result: Dict[str, Any] = await self.agent_chain.ainvoke(input=inputs, config=invoke_config)
+                chain_result: Dict[str, Any] = await self.agent_chain.ainvoke(input=inputs, config=runnable_config)
             except API_ERROR_TYPES as api_error:
                 backtrace = traceback.format_exc()
                 message: str = None
