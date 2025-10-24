@@ -346,6 +346,12 @@ class LangChainRunContext(RunContext):
         return run
 
     async def ainvoke(self, inputs: Dict[str, Any], session_id: str):
+        """
+        Invoke the run
+
+        :param inputs: The inputs for the run
+        :param session_id: The session (run) id
+        """
 
         # Create an agent executor and invoke it with the most recent human message
         # as input.
