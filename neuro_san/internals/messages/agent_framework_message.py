@@ -86,6 +86,9 @@ class AgentFrameworkMessage(TracedMessage):
         if not new_key:
             return None, None
 
+        # Specifically redact any sly_data.  The intent here is to not
+        # transmit any sensitive information that might make it to some
+        # other host.
         if new_key == "sly_data":
             new_value = "<redacted>"
 
