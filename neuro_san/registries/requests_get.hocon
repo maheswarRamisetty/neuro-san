@@ -16,8 +16,8 @@
 {
     # Optional metadata describing this agent network
     "metadata": {
-        "description": "Example of web search using Tavily Search.",
-        "tags": ["example", "web_search"],
+        "description": "Example of web browsing using Requests Get.",
+        "tags": ["example", "web_browsing", "requests_get"],
     },
     "llm_config": {
         "model_name": "gpt-4o",
@@ -35,36 +35,37 @@
         # call each other is defined within their own specs.
         # This could be a graph, potentially even with cycles.
         {
-            "name": "searcher",
+            "name": "browser",
             "instructions": "Use your tool to respond to the inquiry.",
              "function": {
-                "description": "Assist user with answer from internet."
+                "description": "Assist user with answer from the given web URL."
              }
-            "tools": ["search_tool"]
+            "tools": ["web_browse_tool"]
         },
         {
-            "name": "search_tool",
+            "name": "web_browse_tool",
             # The "toolbox" specifies which tool in the toolbox should be instantiated.
             # In this case, "tavily_search" is chosen, which allows querying Tavily for search results.
 
             # Note that tools in toolbox can be either langchain tools or coded tools
             
             # Documentation on the Tavily search tool:
-            # - LangChain's Tavily Search Tool: https://python.langchain.com/docs/integrations/tools/tavily_search/
+            # - LangChain's Requests Get Tool: https://python.langchain.com/api_reference/community/tools/langchain_community.tools.requests.tool.RequestsGetTool.html
             
-            "toolbox": "tavily_search",
+            "toolbox": "requests_get",
 
             # "args" contains the parameters that will be passed to the selected tool.
             # These arguments must align with the tool’s expected function signature.
             # 
-            # For "tavily_search", one of the key parameters is "max_results", which determines 
-            # how many search results should be returned from Tavily.
+            # For "requests_get", one of the key parameters is "allow_dangerous_requests", 
+            # which enables execution of potentially unsafe requests.
+            # This parameter must be explicitly set to true to use this tool.
             # 
             # Other tools will have different required/optional arguments, so be sure to refer to
             # the tool’s documentation to understand what parameters can be configured.
 
             "args": {
-                "max_results": 3
+                "allow_dangerous_requests": true
             }
 
             # -------------------------------------------------------------------------------
@@ -73,7 +74,6 @@
             #
             # Langchain Tools
             #
-            #   - "tavily_search": Uses Tavily for search queries.
             #   - "requests_get": Makes an HTTP GET request.
             #   - "requests_post": Makes an HTTP POST request.
             #   - "requests_patch": Makes an HTTP PATCH request.

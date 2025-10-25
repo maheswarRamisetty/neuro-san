@@ -38,6 +38,7 @@ class TestUnitTestHocons(TestCase):
         "math_guy/forwarded_sly_data.hocon",
         "math_guy/deep_forwarded_sly_data.hocon",
         "music_nerd/beatles_with_history.hocon",
+        "requests_get/get_example.hocon",
 
         # List more hocon files as they become available here.
     ]))

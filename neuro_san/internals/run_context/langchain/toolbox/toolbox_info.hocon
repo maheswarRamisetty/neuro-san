@@ -32,26 +32,6 @@
     # - The specified class must be available in the server's PYTHONPATH.
     # - Additional dependencies (outside of langchain_community) must be installed separately.
 
-    # ---------------- Tavily Search Tool ----------------
-    # This configuration sets up the Tavily Search tool.
-    # It initializes a TavilySearchResults instance with:
-    # - max_results: Specifies that the search should return 5 results
-    # TavilySearchResults(max_results=5)
-
-    "tavily_search": {
-        # This is the class of the tool to use
-        "class": "langchain_community.tools.tavily_search.TavilySearchResults",
-
-        # This is where more info on the tool can be found.
-        "base_tool_info_url": "https://python.langchain.com/api_reference/community/tools/langchain_community.tools.tavily_search.tool.TavilySearchResults.html",
-
-        # Arguments for the tool's constructor.
-        # These arguments will be used when instantiating the tool unless overridden in the agent HOCON file.
-        "args": {
-            "max_results": 5
-        }
-    },
-
     # NOTE on Request tools and toolkit: 
     # There are inherent risks in giving models discretion to execute real-world actions.
     # Users must "opt-in" to these risks by setting allow_dangerous_request=True to use these tools.
@@ -63,7 +43,7 @@
     # - requests_wrapper: An instance of TextRequestsWrapper (used to manage headers)
     # - allow_dangerous_requests: Enables execution of potentially unsafe requests
     # The `.get_tools()` method is called, meaning this toolkit returns multiple tools.
-    # RequestsToolkit(allow_dangerous_requests=True).get_tools()
+    # RequestsToolkit(requests_wrapper=TextRequestsWrapper(headers={}), allow_dangerous_requests=True).get_tools()
 
     "requests_toolkit": {
         # This is the class of the tool to use
@@ -75,7 +55,13 @@
         # Arguments for the tool's constructor.
         # These arguments will be used when instantiating the tool unless overridden in the agent HOCON file.
         "args": {
-            "allow_dangerous_requests": true
+            "allow_dangerous_requests": true,
+            "requests_wrapper": {
+                "class": "langchain_community.utilities.requests.TextRequestsWrapper",
+                "args": {
+                    "headers": {}
+                }
+            }
         }
     },
 
@@ -86,7 +72,7 @@
     # It initializes RequestsGetTool with:
     # - requests_wrapper: Manages request headers
     # - allow_dangerous_requests: Enables potentially unsafe requests
-    # RequestsGetTool(allow_dangerous_requests=True)
+    # RequestsGetTool(requests_wrapper=TextRequestsWrapper(headers={}), allow_dangerous_requests=True)
 
     "requests_get": {
         # This is the class of the tool to use
@@ -98,14 +84,20 @@
         # Arguments for the tool's constructor.
         # These arguments will be used when instantiating the tool unless overridden in the agent HOCON file.
         "args": {
-            "allow_dangerous_requests": true
+            "allow_dangerous_requests": true,
+            "requests_wrapper": {
+                "class": "langchain_community.utilities.requests.TextRequestsWrapper",
+                "args": {
+                    "headers": {}
+                }
+            }
         }
     },
 
     # POST request tool
     # This configures an HTTP POST request tool.
     # It is similar to the GET tool but allows sending data in the request body.
-    # RequestsPostTool(allow_dangerous_requests=True)
+    # RequestsPostTool(requests_wrapper=TextRequestsWrapper(headers={}), allow_dangerous_requests=True)
 
     "requests_post": {
         # This is the class of the tool to use
@@ -117,13 +109,19 @@
         # Arguments for the tool's constructor.
         # These arguments will be used when instantiating the tool unless overridden in the agent HOCON file.
         "args": {
-            "allow_dangerous_requests": true
+            "allow_dangerous_requests": true,
+            "requests_wrapper": {
+                "class": "langchain_community.utilities.requests.TextRequestsWrapper",
+                "args": {
+                    "headers": {}
+                }
+            }
         }
     },
 
     # PATCH request tool
     # This allows sending PATCH requests, typically used to update resources.
-    # RequestsPatchTool(allow_dangerous_requests=True)
+    # RequestsPatchTool(requests_wrapper=TextRequestsWrapper(headers={}), allow_dangerous_requests=True)
 
     "requests_patch": {
         # This is the class of the tool to use
@@ -135,13 +133,19 @@
         # Arguments for the tool's constructor.
         # These arguments will be used when instantiating the tool unless overridden in the agent HOCON file.
         "args": {
-            "allow_dangerous_requests": true
+            "allow_dangerous_requests": true,
+            "requests_wrapper": {
+                "class": "langchain_community.utilities.requests.TextRequestsWrapper",
+                "args": {
+                    "headers": {}
+                }
+            }
         }
     },
 
     # PUT request tool
     # This allows sending PUT requests, which are used to replace resources.
-    # RequestsPutTool(allow_dangerous_requests=True)
+    # RequestsPutTool(requests_wrapper=TextRequestsWrapper(headers={}), allow_dangerous_requests=True)
 
     "requests_put": {
         # This is the class of the tool to use
@@ -153,13 +157,19 @@
         # Arguments for the tool's constructor.
         # These arguments will be used when instantiating the tool unless overridden in the agent HOCON file.
         "args": {
-            "allow_dangerous_requests": true
+            "allow_dangerous_requests": true,
+            "requests_wrapper": {
+                "class": "langchain_community.utilities.requests.TextRequestsWrapper",
+                "args": {
+                    "headers": {}
+                }
+            }
         }
     },
 
     # DELETE request tool
     # This enables HTTP DELETE requests to remove resources.
-    # RequestsDeleteTool(allow_dangerous_requests=True)
+    # RequestsDeleteTool(requests_wrapper=TextRequestsWrapper(headers={}), allow_dangerous_requests=True)
 
     "requests_delete": {
         # This is the class of the tool to use
@@ -171,7 +181,13 @@
         # Arguments for the tool's constructor.
         # These arguments will be used when instantiating the tool unless overridden in the agent HOCON file.
         "args": {
-            "allow_dangerous_requests": true
+            "allow_dangerous_requests": true,
+            "requests_wrapper": {
+                "class": "langchain_community.utilities.requests.TextRequestsWrapper",
+                "args": {
+                    "headers": {}
+                }
+            }
         }
     },
 
