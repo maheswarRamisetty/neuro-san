@@ -9,26 +9,34 @@
 # neuro-san SDK Software in commercial settings.
 #
 # END COPYRIGHT
+from __future__ import annotations
+
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Literal
+from typing import Optional
 from typing import Union
 
-from langchain_core.messages.base import BaseMessage
+from neuro_san.internals.messages.traced_message import TracedMessage
 
 
-class AgentFrameworkMessage(BaseMessage):
+class AgentFrameworkMessage(TracedMessage):
     """
-    BaseMessage implementation of a message from the agent framework
+    TracedMessage implementation of a message from the agent framework
     """
+
+    structure: Optional[Dict[str, Any]] = None
+    sly_data: Optional[Dict[str, Any]] = None
+    chat_context: Optional[Dict[str, Any]] = None
 
     type: Literal["agent-framework"] = "agent-framework"
 
-    def __init__(self, content: Union[str, List[Union[str, Dict]]] = None,
+    def __init__(self, content: Union[str, List[Union[str, Dict]]] = "",
                  chat_context: Dict[str, Any] = None,
                  sly_data: Dict[str, Any] = None,
                  structure: Dict[str, Any] = None,
+                 other: AgentFrameworkMessage = None,
                  **kwargs: Any) -> None:
         """
         Pass in content as positional arg.
@@ -44,7 +52,19 @@ class AgentFrameworkMessage(BaseMessage):
                         multitude of clients do not have to rediscover how to best do it.
         :param kwargs: Additional fields to pass to the superclass
         """
-        super().__init__(content=content, **kwargs)
+        super().__init__(content=content, other=other, **kwargs)
         self.chat_context: Dict[str, Any] = chat_context
         self.sly_data: Dict[str, Any] = sly_data
         self.structure: Dict[str, Any] = structure
+
+    @property
+    def lc_kwargs(self) -> Dict[str, Any]:
+        """
+        :return: the keyword arguments for serialization.
+        """
+        return {
+            "content": self.content,
+            "structure": self.structure,
+            "sly_data": self.sly_data,
+            "chat_context": self.chat_context,
+        }

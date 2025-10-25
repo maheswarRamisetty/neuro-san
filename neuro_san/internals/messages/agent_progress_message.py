@@ -9,24 +9,30 @@
 # neuro-san SDK Software in commercial settings.
 #
 # END COPYRIGHT
+from __future__ import annotations
+
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Literal
+from typing import Optional
 from typing import Union
 
-from langchain_core.messages.base import BaseMessage
+from neuro_san.internals.messages.traced_message import TracedMessage
 
 
-class AgentProgressMessage(BaseMessage):
+class AgentProgressMessage(TracedMessage):
     """
-    BaseMessage implementation of a progress message from an agent or CodedTool
+    TracedMessage implementation of a progress message from an agent or CodedTool
     """
+    structure: Optional[Dict[str, Any]] = None
 
     type: Literal["agent-progress"] = "agent-progress"
 
     def __init__(self, content: Union[str, List[Union[str, Dict]]] = "",
-                 structure: Dict[str, Any] = None, **kwargs: Any) -> None:
+                 structure: Dict[str, Any] = None,
+                 other: AgentProgressMessage = None,
+                 **kwargs: Any) -> None:
         """
         Pass in content as positional arg.
 
@@ -35,5 +41,15 @@ class AgentProgressMessage(BaseMessage):
             structure: A dictionary to pack into the message
             kwargs: Additional fields to pass to the
         """
-        super().__init__(content=content, **kwargs)
+        super().__init__(content=content, other=other, **kwargs)
         self.structure: Dict[str, Any] = structure
+
+    @property
+    def lc_kwargs(self) -> Dict[str, Any]:
+        """
+        :return: the keyword arguments for serialization.
+        """
+        return {
+            "content": self.content,
+            "structure": self.structure,
+        }

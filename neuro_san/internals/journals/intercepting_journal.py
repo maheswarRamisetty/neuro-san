@@ -16,7 +16,7 @@ from typing import List
 from langchain_core.messages.base import BaseMessage
 
 from neuro_san.internals.journals.journal import Journal
-from neuro_san.internals.messages.agent_message import AgentMessage
+from neuro_san.internals.messages.traced_message import TracedMessage
 
 
 class InterceptingJournal(Journal):
@@ -51,8 +51,8 @@ class InterceptingJournal(Journal):
 
         if origin == self.origin:
             new_message: BaseMessage = message
-            if isinstance(message, AgentMessage):
-                new_message = AgentMessage(other=message)
+            if isinstance(message, TracedMessage):
+                new_message = message.__class__(other=message)
             self.messages.append(new_message)
 
     def get_messages(self) -> List[BaseMessage]:

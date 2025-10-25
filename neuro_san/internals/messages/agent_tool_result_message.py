@@ -9,10 +9,13 @@
 # neuro-san SDK Software in commercial settings.
 #
 # END COPYRIGHT
+from __future__ import annotations
+
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Literal
+from typing import Optional
 from typing import Union
 
 from langchain_core.messages.ai import AIMessage
@@ -26,10 +29,13 @@ class AgentToolResultMessage(AIMessage):
     where the the tool result came from.
     """
 
+    tool_result_origin: Optional[List[Dict[str, Any]]] = None
+
     type: Literal["agent_tool_result"] = "agent_tool_result"
 
-    def __init__(self, content: Union[str, List[Union[str, Dict]]],
-                 tool_result_origin: List[Dict[str, Any]],
+    def __init__(self, content: Union[str, List[Union[str, Dict]]] = "",
+                 tool_result_origin: List[Dict[str, Any]] = None,
+                 other: AgentToolResultMessage = None,
                  **kwargs: Any) -> None:
         """
         Pass in content as positional arg.
@@ -39,5 +45,15 @@ class AgentToolResultMessage(AIMessage):
             tool_result_origin: The origin describing where the tool result came from
             kwargs: Additional fields to pass to the
         """
-        super().__init__(content=content, **kwargs)
+        super().__init__(content=content, other=other, **kwargs)
         self.tool_result_origin: List[Dict[str, Any]] = tool_result_origin
+
+    @property
+    def lc_kwargs(self) -> Dict[str, Any]:
+        """
+        :return: the keyword arguments for serialization.
+        """
+        return {
+            "content": self.content,
+            "tool_result_origin": self.tool_result_origin,
+        }
