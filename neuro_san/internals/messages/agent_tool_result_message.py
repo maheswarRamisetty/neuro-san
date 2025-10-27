@@ -43,7 +43,7 @@ class AgentToolResultMessage(AIMessage, TracedMessage):
         Constructor
 
         :param content: The string contents of the message.
-        :param structure: A dictionary to pack into the message
+        :param tool_result_origin: A dictionary describing the origin of the tool result.
         :param trace_source: A message of the same type to prepare for tracing display
         :param kwargs: Additional fields to pass to initialize
         """
