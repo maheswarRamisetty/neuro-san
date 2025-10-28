@@ -13,7 +13,6 @@ from typing import Any
 from typing import Dict
 from typing import List
 
-from langchain_core.messages.ai import AIMessage
 from langchain_core.messages.base import BaseMessage
 from langchain_core.messages.system import SystemMessage
 
