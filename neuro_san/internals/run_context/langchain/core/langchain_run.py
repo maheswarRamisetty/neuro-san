@@ -24,6 +24,8 @@ class LangChainRun(Run):
     A LangChain implementation of a Run.
     """
 
+    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
     def __init__(self, run_id_base: str, chat_history: List[BaseMessage],
                  tool_name: str = None, args: Any = None, tool_message: BaseMessage = None):
         """
