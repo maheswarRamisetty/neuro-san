@@ -92,7 +92,8 @@ class McpToolsProcessor:
                 if partial_response is not None:
                     response_text = response_text + partial_response
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            return McpErrorsUtil.get_tool_error(request_id, f"Failed to execute tool {tool_name}: {str(exc)}")
+            self.logger.error(metadata, "Tool %s execution failed: %s", tool_name, str(exc))
+            return McpErrorsUtil.get_tool_error(request_id, f"Failed to execute tool {tool_name}")
 
         # Return tool call result:
         return {
