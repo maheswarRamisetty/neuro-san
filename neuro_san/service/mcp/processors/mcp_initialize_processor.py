@@ -19,6 +19,7 @@ from typing import Tuple
 from neuro_san.service.http.logging.http_logger import HttpLogger
 from neuro_san.service.utils.mcp_server_context import McpServerContext
 from neuro_san.service.mcp.session.mcp_client_session import McpClientSession
+from neuro_san.service.mcp.util.requests_util import RequestsUtil
 
 
 class McpInitializeProcessor:
@@ -56,7 +57,7 @@ class McpInitializeProcessor:
         response_dict: Dict[str, Any] =\
             {
                 "jsonrpc": "2.0",
-                "id": request_id,
+                "id": RequestsUtil.safe_request_id(request_id),
                 "result": {
                     "protocolVersion": "2025-06-18",
                     "capabilities": {

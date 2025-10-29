@@ -16,6 +16,7 @@ from typing import Any
 from typing import Dict
 
 from neuro_san.service.http.logging.http_logger import HttpLogger
+from neuro_san.service.mcp.util.requests_util import RequestsUtil
 
 
 class McpPingProcessor:
@@ -36,6 +37,6 @@ class McpPingProcessor:
         _ = metadata
         return {
             "jsonrpc": "2.0",
-            "id": request_id,
+            "id": RequestsUtil.safe_request_id(request_id),
             "result": {}
         }

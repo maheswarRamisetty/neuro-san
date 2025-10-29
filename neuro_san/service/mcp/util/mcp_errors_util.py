@@ -12,11 +12,11 @@
 """
 See class comment for details
 """
-import html
 from typing import Any
 from typing import Dict
 
 from neuro_san.service.mcp.mcp_errors import McpError
+from neuro_san.service.mcp.util.requests_util import RequestsUtil
 
 
 class McpErrorsUtil:
@@ -39,7 +39,7 @@ class McpErrorsUtil:
         return {
             "jsonrpc": "2.0",
             # Appease code scanning tools by escaping the id field:
-            "id": html.escape(str(request_id)),
+            "id": RequestsUtil.safe_request_id(request_id),
             "error": {
                 "code": error.num_value,
                 "message": msg
@@ -57,7 +57,7 @@ class McpErrorsUtil:
         return {
             "jsonrpc": "2.0",
             # Appease code scanning tools by escaping the id field:
-            "id": html.escape(str(request_id)),
+            "id": RequestsUtil.safe_request_id(request_id),
             "result": {
                 "content": [
                     {

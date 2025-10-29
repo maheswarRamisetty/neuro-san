@@ -23,6 +23,7 @@ from neuro_san.service.generic.async_agent_service import AsyncAgentService
 from neuro_san.service.generic.async_agent_service_provider import AsyncAgentServiceProvider
 from neuro_san.session.direct_concierge_session import DirectConciergeSession
 from neuro_san.service.mcp.util.mcp_errors_util import McpErrorsUtil
+from neuro_san.service.mcp.util.requests_util import RequestsUtil
 from neuro_san.service.http.logging.http_logger import HttpLogger
 
 
@@ -57,7 +58,7 @@ class McpToolsProcessor:
             tools_description.append(tool_dict)
         return {
             "jsonrpc": "2.0",
-            "id": request_id,
+            "id": RequestsUtil.safe_request_id(request_id),
             "result": {
                 "tools": tools_description
             }
@@ -94,7 +95,7 @@ class McpToolsProcessor:
         # Return tool call result:
         return {
             "jsonrpc": "2.0",
-            "id": request_id,
+            "id": RequestsUtil.safe_request_id(request_id),
             "result": {
                 "content": [
                     {

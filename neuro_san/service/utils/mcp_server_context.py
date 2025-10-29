@@ -10,8 +10,7 @@
 #
 # END COPYRIGHT
 """
-See cccccbulijhliuvfhlirlbhncljehjjhttvunhdnhfeg
-class comment for details
+See class comment for details
 """
 import json
 
