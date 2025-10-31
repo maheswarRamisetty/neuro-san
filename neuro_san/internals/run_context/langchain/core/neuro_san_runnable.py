@@ -17,6 +17,7 @@ from typing import Tuple
 from typing import Type
 from typing import Union
 
+import os
 import traceback
 
 from logging import Logger
@@ -225,10 +226,20 @@ class NeuroSanRunnable(RunnablePassthrough):
             runnable_config["recursion_limit"] = recursion_limit
 
         # Maybe add metadata to the config
-        # DEF - get this from AGENT_USAGE_LOGGER_METADATA list. Plumbing likely required.
-        runnable_keys: List[str] = ["request_id", "user_id"]
         runnable_metadata: Dict[str, Any] = {}
-        for key in runnable_keys:
+
+        # Add values for listed env vars if they have values.
+        # Defaults are standard env vars for kubernetes deployments
+        env_vars_str: str = os.getenv("AGENT_TRACING_ENV_VARS", "POD_NAME POD_NAMESPACE POD_IP NODE_NAME")
+        if env_vars_str:
+            env_vars: List[str] = env_vars_str.split(" ")
+            for env_var in env_vars:
+                value: str = os.getenv(env_var)
+                if value:
+                    runnable_metadata[env_var] = value
+
+        request_keys: List[str] = ["request_id", "user_id"]
+        for key in request_keys:
             value: Any = request_metadata.get(key)
             if value is not None:
                 runnable_metadata[key] = value
