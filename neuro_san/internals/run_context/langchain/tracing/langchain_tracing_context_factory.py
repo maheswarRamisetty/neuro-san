@@ -37,5 +37,5 @@ class LangChainTracingContextFactory(ContextTypeTracingContextFactory):
         :return: Another RunTarget which will be the tracing context
         """
         _ = config
-        tracing_context: RunTarget = NeuroSanRunnable(run_target=run_target)
+        tracing_context: RunTarget = NeuroSanRunnable(run_target=run_target, **config)
         return tracing_context

@@ -105,7 +105,7 @@ class NeuroSanRunnable(RunnablePassthrough, RunTarget):
             The output of the `Runnable`.
         """
         outputs: Output = await self.ainvoke(inputs)
-        return output
+        return outputs
 
     def prepare_runnable_config(self, session_id: str = None,
                                 callbacks: List[BaseCallbackHandler] = None,

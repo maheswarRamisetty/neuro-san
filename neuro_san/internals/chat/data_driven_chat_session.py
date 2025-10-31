@@ -43,6 +43,7 @@ from neuro_san.internals.interfaces.context_type_tracing_context_factory import 
 from neuro_san.internals.interfaces.front_man import FrontMan
 from neuro_san.internals.interfaces.invocation_context import InvocationContext
 from neuro_san.internals.interfaces.run_target import RunTarget
+from neuro_san.internals.journals.intercepting_journal import InterceptingJournal
 from neuro_san.internals.journals.journal import Journal
 from neuro_san.internals.messages.agent_framework_message import AgentFrameworkMessage
 from neuro_san.internals.messages.base_message_dictionary_converter import BaseMessageDictionaryConverter
@@ -80,6 +81,7 @@ class DataDrivenChatSession(RunTarget):
         self.front_man: FrontMan = None
         self.sly_data: Dict[str, Any] = {}
         self.invocation_context: InvocationContext = None
+        self.interceptor: InterceptingJournal = None
 
     async def set_up(self, invocation_context: InvocationContext,
                      chat_context: Dict[str, Any] = None):
@@ -194,7 +196,13 @@ class DataDrivenChatSession(RunTarget):
 
         tracing_factory: ContextTypeTracingContextFactory = \
             MasterTracingContextFactory.create_tracing_context_factory()
-        config: Dict[str, Any] = {}
+
+        journal: Journal = self.invocation_context.get_journal()
+        self.interceptor = InterceptingJournal(journal, origin=None)
+
+        config: Dict[str, Any] = {
+            "interceptor": self.interceptor
+        }
         run_target: RunTarget = tracing_factory.create_tracing_context(config, self)
 
         await run_target.run_it(inputs)
@@ -250,8 +258,7 @@ class DataDrivenChatSession(RunTarget):
         # Stream over chat state as the last message
         message = AgentFrameworkMessage(content=answer, chat_context=return_chat_context,
                                         sly_data=return_sly_data, structure=structure)
-        journal: Journal = self.invocation_context.get_journal()
-        await journal.write_message(message, origin=None)
+        await self.interceptor.write_message(message, origin=None)
 
         # Put an end-marker on the queue to tell the consumer we truly are done
         # and it doesn't need to wait for any more messages.
