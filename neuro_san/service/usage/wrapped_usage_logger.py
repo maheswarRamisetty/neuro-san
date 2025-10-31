@@ -12,12 +12,12 @@
 
 from typing import Any
 from typing import Dict
-from typing import List
 
 from asyncio import run
 from os import environ
 
 from neuro_san.interfaces.usage_logger import UsageLogger
+from neuro_san.internals.utils.metadata_util import MetadataUtil
 
 
 class WrappedUsageLogger(UsageLogger):
@@ -70,7 +70,12 @@ class WrappedUsageLogger(UsageLogger):
             return
 
         compliant_token_dict: Dict[str, Any] = self.make_compliant_token_dict(token_dict)
-        minimal_metadata: Dict[str, Any] = self.minimize_metadata(request_metadata)
+
+        # Try getting the value from the more specific env var before falling back to the
+        # other env var.
+        keys_string: str = environ.get("AGENT_USAGE_LOGGER_METADATA",
+                                       environ.get("AGENT_FORWARDED_REQUEST_METADATA"))
+        minimal_metadata: Dict[str, Any] = MetadataUtil.minimize_metadata(request_metadata, keys_string)
 
         await self.wrapped.log_usage(compliant_token_dict, minimal_metadata)
 
@@ -96,35 +101,3 @@ class WrappedUsageLogger(UsageLogger):
             }
 
         return compliant
-
-    def minimize_metadata(self, request_metadata: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        :param request_metadata: The raw request metadata dictionary that could easily contain
-                    more keys than we want to send to the UsageLogger.
-        :return: A minimized dictionary that only sends the keys we need to the UsageLogger.
-                The idea is that this prevents the UsageLogger from getting potentially
-                sensitive information it shouldn't really have.
-
-                If the requested keys in the metadata are not there, they will also not appear
-                in the returned minimized dictionary.
-        """
-        minimized: Dict[str, Any] = {}
-
-        # Try getting the value from the more specific env var before falling back to the
-        # other env var.
-        keys_string: str = environ.get("AGENT_USAGE_LOGGER_METADATA",
-                                       environ.get("AGENT_FORWARDED_REQUEST_METADATA"))
-
-        if keys_string is None or len(keys_string) == 0:
-            return minimized
-
-        keys: List[str] = keys_string.split(" ")
-        for key in keys:
-            if key is None or len(key) == 0:
-                # Skip any empty key split from the list. Allows for multi-spaces.
-                continue
-            value: Any = request_metadata.get(key)
-            if value is not None:
-                minimized[key] = value
-
-        return minimized

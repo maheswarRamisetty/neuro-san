@@ -34,6 +34,7 @@ from langchain_core.runnables.utils import Output
 from neuro_san.internals.interfaces.invocation_context import InvocationContext
 from neuro_san.internals.journals.intercepting_journal import InterceptingJournal
 from neuro_san.internals.messages.origination import Origination
+from neuro_san.internals.utils.metadata_util import MetadataUtil
 
 
 class NeuroSanRunnable(RunnablePassthrough):
@@ -156,23 +157,16 @@ class NeuroSanRunnable(RunnablePassthrough):
 
         # Add values for listed env vars if they have values.
         # Defaults are standard env vars for kubernetes deployments
-        env_vars_str: str = os.getenv("AGENT_TRACING_METADATA_ENV_VARS", "POD_NAME POD_NAMESPACE POD_IP NODE_NAME")
-        if env_vars_str:
-            env_vars: List[str] = env_vars_str.split(" ")
-            for env_var in env_vars:
-                if not env_var:
-                    continue
-                value: str = os.getenv(env_var)
-                if value:
-                    runnable_metadata[env_var] = value
+        env_vars_str: str = os.getenv("AGENT_TRACING_METADATA_ENV_VARS",
+                                      "POD_NAME POD_NAMESPACE POD_IP NODE_NAME")
+        to_add: Dict[str, Any] = MetadataUtil.minimize_metadata(os.environ, env_vars_str)
+        runnable_metadata.update(to_add)
 
-        request_keys: List[str] = ["request_id", "user_id"]
-        for key in request_keys:
-            if not key:
-                continue
-            value: Any = request_metadata.get(key)
-            if value is not None:
-                runnable_metadata[key] = value
+        request_keys: str = os.getenv("AGENT_TRACING_METADATA_REQUEST_KEYS",
+                                      os.getenv("AGENT_USAGE_LOGGER_KEYS",
+                                                "request_id user_id"))
+        to_add: Dict[str, Any] = MetadataUtil.minimize_metadata(request_metadata, request_keys)
+        runnable_metadata.update(to_add)
 
         return runnable_metadata
 
