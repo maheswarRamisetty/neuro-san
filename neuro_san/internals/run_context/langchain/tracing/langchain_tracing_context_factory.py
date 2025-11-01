@@ -20,7 +20,7 @@ from typing import Dict
 
 from neuro_san.internals.interfaces.context_type_tracing_context_factory import ContextTypeTracingContextFactory
 from neuro_san.internals.interfaces.run_target import RunTarget
-from neuro_san.internals.run_context.langchain.tracing.neuro_san_runnable import NeuroSanRunnable
+from neuro_san.internals.run_context.langchain.tracing.langchain_tracing_context import LangChainTracingContext
 
 
 class LangChainTracingContextFactory(ContextTypeTracingContextFactory):
@@ -36,6 +36,5 @@ class LangChainTracingContextFactory(ContextTypeTracingContextFactory):
         :param run_target: The RunTarget instance to be traced
         :return: Another RunTarget which will be the tracing context
         """
-        _ = config
-        tracing_context: RunTarget = NeuroSanRunnable(run_target=run_target, **config)
+        tracing_context = LangChainTracingContext(run_target=run_target, config=config)
         return tracing_context

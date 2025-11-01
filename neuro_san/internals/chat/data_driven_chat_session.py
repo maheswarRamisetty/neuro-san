@@ -201,7 +201,8 @@ class DataDrivenChatSession(RunTarget):
         self.interceptor = InterceptingJournal(journal, origin=None)
 
         config: Dict[str, Any] = {
-            "interceptor": self.interceptor
+            "interceptor": self.interceptor,
+            "invocation_context": self.invocation_context
         }
         run_target: RunTarget = tracing_factory.create_tracing_context(config, self)
 
