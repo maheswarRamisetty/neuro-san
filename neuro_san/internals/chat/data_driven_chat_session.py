@@ -116,7 +116,7 @@ class DataDrivenChatSession(RunTarget):
                    invocation_context: InvocationContext,
                    sly_data: Dict[str, Any] = None) -> Iterator[Dict[str, Any]]:
         """
-        Main entry-point method for accepting new user input
+        Performs a portion of the streaming_chat() responsibilities
 
         :param user_input: A string with the user's input
         :param invocation_context: The context policy container that pertains to the invocation
@@ -179,6 +179,7 @@ class DataDrivenChatSession(RunTarget):
                              chat_context: Dict[str, Any] = None):
         """
         Main streaming entry-point method for accepting new user input
+        invoked by DirectAgentSession and its friends.
 
         :param user_input: A string with the user's input
         :param invocation_context: The context policy container that pertains to the invocation
@@ -221,7 +222,8 @@ class DataDrivenChatSession(RunTarget):
 
     async def run_it(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Main entry-point method for accepting new user input
+        This method is effectively a callback which is invoked within
+        the tracing context infrastructure for the toolkit/context_type.
 
         :param inputs: A dictionary with the following keys:
                 "user_input": A string with the user's input
