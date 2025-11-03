@@ -17,19 +17,13 @@
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Optional
 from typing import Tuple
 from typing import Type
 from typing import Union
 
-import os
 import traceback
 
-from logging import Logger
-from logging import getLogger
-
 from pydantic import ConfigDict
-from typing_extensions import override
 
 from langchain_classic.callbacks.tracers.logging import LoggingCallbackHandler
 from langchain_core.agents import AgentFinish
@@ -38,24 +32,19 @@ from langchain_core.language_models.base import BaseLanguageModel
 from langchain_core.messages.ai import AIMessage
 from langchain_core.messages.base import BaseMessage
 from langchain_core.messages.human import HumanMessage
-from langchain_core.messages.base import messages_to_dict
-from langchain_core.runnables.base import Other
 from langchain_core.runnables.base import Runnable
-from langchain_core.runnables.base import RunnableConfig
-from langchain_core.runnables.passthrough import RunnablePassthrough
 from langchain_core.runnables.utils import Input
 from langchain_core.runnables.utils import Output
 
 from leaf_common.config.resolver_util import ResolverUtil
 
 from neuro_san.internals.errors.error_detector import ErrorDetector
-from neuro_san.internals.interfaces.invocation_context import InvocationContext
-from neuro_san.internals.journals.intercepting_journal import InterceptingJournal
 from neuro_san.internals.journals.journal import Journal
 from neuro_san.internals.messages.origination import Origination
 from neuro_san.internals.run_context.interfaces.tool_caller import ToolCaller
 from neuro_san.internals.run_context.langchain.journaling.journaling_callback_handler import JournalingCallbackHandler
 from neuro_san.internals.run_context.langchain.token_counting.langchain_token_counter import LangChainTokenCounter
+from neuro_san.internals.run_context.langchain.tracing.neuro_san_runnable import NeuroSanRunnable
 from neuro_san.internals.run_context.langchain.util.api_key_error_check import ApiKeyErrorCheck
 
 MINUTES: float = 60.0
@@ -68,7 +57,7 @@ API_ERROR_TYPES: Tuple[Type[Any], ...] = ResolverUtil.create_type_tuple([
                                          ])
 
 
-class NeuroSanRunnable(RunnablePassthrough):
+class RunContextRunnable(NeuroSanRunnable):
     """
     RunnablePassthrough implementation that intercepts journal messages
     """
@@ -80,13 +69,7 @@ class NeuroSanRunnable(RunnablePassthrough):
 
     primary_llm: BaseLanguageModel
 
-    invocation_context: InvocationContext
-
     journal: Journal
-
-    interceptor: InterceptingJournal
-
-    origin: List[Dict[str, Any]]
 
     tool_caller: ToolCaller
 
@@ -94,37 +77,12 @@ class NeuroSanRunnable(RunnablePassthrough):
 
     session_id: str
 
-    # Default logger
-    logger: Optional[Logger] = None
-
     # This guy needs to be a pydantic class and in order to have
     # a non-pydantic Journal as a member, we need to do this.
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    def __init__(
-        self,
-        **kwargs: Any,
-    ) -> None:
-        """
-        Constructor
-        """
-        super().__init__(afunc=self.do_it, **kwargs)
-
     # pylint: disable=redefined-builtin
-    @override
-    async def ainvoke(
-        self,
-        input: Other,
-        config: RunnableConfig | None = None,
-        **kwargs: Any | None,
-    ) -> Other:
-
-        _: Other = await super().ainvoke(input, config, **kwargs)
-        outputs: Dict[str, Any] = self.get_intercepted_outputs()
-        return outputs
-
-    # pylint: disable=redefined-builtin
-    async def do_it(self, inputs: Input) -> Output:
+    async def run_it(self, inputs: Input) -> Output:
         """
         Transform a single input into an output.
 
@@ -133,18 +91,6 @@ class NeuroSanRunnable(RunnablePassthrough):
 
         Returns:
             The output of the `Runnable`.
-        """
-        self.logger = getLogger(self.__class__.__name__)
-
-        await self.main_invoke(inputs)
-
-        return inputs
-
-    async def main_invoke(self, inputs: Dict[str, Any]):
-        """
-        Workhorse
-
-        :param inputs: Inputs to process
         """
 
         # Create an agent executor and invoke it with the most recent human message
@@ -188,81 +134,7 @@ class NeuroSanRunnable(RunnablePassthrough):
         token_counter = LangChainTokenCounter(self.primary_llm, self.invocation_context, self.journal, self.origin)
         await token_counter.count_tokens(self.invoke_agent_chain(inputs, runnable_config), max_execution_seconds)
 
-    def prepare_runnable_config(self, session_id: str = None,
-                                callbacks: List[BaseCallbackHandler] = None,
-                                recursion_limit: int = None,
-                                use_run_name: bool = False) -> Dict[str, Any]:
-        """
-        Prepare a RunnableConfig for a Runnable invocation.  See:
-        https://python.langchain.com/api_reference/core/runnables/langchain_core.runnables.config.RunnableConfig.html
-
-        :param session_id: An id for the run
-        :param callbacks: A list of BaseCallbackHandlers to use for the run
-        :param recursion_limit: Maximum number of times a call can recurse.
-        :return: A dictionary to be used for a Runnable's invoke config.
-        """
-        request_metadata: Dict[str, Any] = self.invocation_context.get_metadata()
-
-        # Set up a run name for tracing purposes
-        run_name: str = None
-        if use_run_name:
-            request_id: str = request_metadata.get("request_id")
-            request_prefix: str = ""
-            if request_id is not None:
-                request_prefix = f"{request_id}-"
-            origin_name: str = Origination.get_full_name_from_origin(self.origin)
-            run_name: str = f"{request_prefix}{origin_name}"
-
-        runnable_config: Dict[str, Any] = {}
-
-        # Add some optional stuff
-        if session_id:
-            runnable_config["configurable"] = {
-                "session_id": session_id
-            }
-
-        if run_name:
-            runnable_config["run_name"] = run_name
-
-        if callbacks:
-            runnable_config["callbacks"] = callbacks
-
-        if recursion_limit:
-            runnable_config["recursion_limit"] = recursion_limit
-
-        # Only add metadata if we have something
-        runnable_metadata: Dict[str, Any] = self.prepare_tracing_metadata(request_metadata)
-        if runnable_metadata:
-            runnable_config["metadata"] = runnable_metadata
-
-        return runnable_config
-
-    def prepare_tracing_metadata(self, request_metadata: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Prepare a dictionary of metadata for tracing purposes.
-
-        :param request_metadata: The metadata to use for the run
-        :return: A dictionary of metadata for run tracing
-        """
-        runnable_metadata: Dict[str, Any] = {}
-
-        # Add values for listed env vars if they have values.
-        # Defaults are standard env vars for kubernetes deployments
-        env_vars_str: str = os.getenv("AGENT_TRACING_METADATA_ENV_VARS", "POD_NAME POD_NAMESPACE POD_IP NODE_NAME")
-        if env_vars_str:
-            env_vars: List[str] = env_vars_str.split(" ")
-            for env_var in env_vars:
-                value: str = os.getenv(env_var)
-                if value:
-                    runnable_metadata[env_var] = value
-
-        request_keys: List[str] = ["request_id", "user_id"]
-        for key in request_keys:
-            value: Any = request_metadata.get(key)
-            if value is not None:
-                runnable_metadata[key] = value
-
-        return runnable_metadata
+        return inputs
 
     async def invoke_agent_chain(self, inputs: Dict[str, Any], runnable_config: Dict[str, Any]):
         """
@@ -389,15 +261,3 @@ class NeuroSanRunnable(RunnablePassthrough):
         # See if we had some kind of error and format accordingly, if asked for.
         output = self.error_detector.handle_error(output, backtrace)
         return output
-
-    def get_intercepted_outputs(self) -> Dict[str, Any]:
-        """
-        :return: the intercepted outputs
-        """
-        intercepted_messages: List[BaseMessage] = self.interceptor.get_messages()
-
-        messages: List[Dict[str, Any]] = messages_to_dict(intercepted_messages)
-        outputs: Dict[str, Any] = {
-            "messages": messages
-        }
-        return outputs

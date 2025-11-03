@@ -94,7 +94,8 @@ class DirectAgentSessionFactory:
 
         # DEF - We could do max_lifetime here, but waiting until that seems necessary.
         reservationist = DirectAgentReservationist(set([self.network_storage_dict.get("temp")]))
-        invocation_context = SessionInvocationContext(factory,
+        invocation_context = SessionInvocationContext(agent_name,
+                                                      factory,
                                                       executors_pool,
                                                       llm_factory,
                                                       toolbox_factory,

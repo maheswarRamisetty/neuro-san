@@ -24,6 +24,7 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from copy import copy
 
 from neuro_san.internals.messages.traced_message import TracedMessage
 
@@ -91,10 +92,14 @@ class AgentFrameworkMessage(TracedMessage):
         if not new_key:
             return None, None
 
-        # Specifically redact any sly_data.  The intent here is to not
-        # transmit any sensitive information that might make it to some
-        # other host.
+        # Specifically redact any sly_data values, but keep the keys.
+        # The intent here is to not transmit any sensitive information
+        # that might make it to some other host.
         if new_key == "sly_data":
-            new_value = "<redacted>"
+            # Shallow copy the original sly_data dictionary
+            new_value = copy(value)
+            for sly_data_key in new_value:
+                # Keep the keys but redact the values
+                new_value[sly_data_key] = "<redacted>"
 
         return new_key, new_value

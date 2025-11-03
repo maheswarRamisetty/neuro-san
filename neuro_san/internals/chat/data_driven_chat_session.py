@@ -39,12 +39,16 @@ from neuro_san.internals.chat.chat_history_message_processor import ChatHistoryM
 from neuro_san.internals.graph.registry.agent_network import AgentNetwork
 from neuro_san.internals.graph.registry.agent_tool_registry import AgentToolRegistry
 from neuro_san.internals.graph.activations.sly_data_redactor import SlyDataRedactor
+from neuro_san.internals.interfaces.context_type_tracing_context_factory import ContextTypeTracingContextFactory
 from neuro_san.internals.interfaces.front_man import FrontMan
 from neuro_san.internals.interfaces.invocation_context import InvocationContext
+from neuro_san.internals.interfaces.run_target import RunTarget
+from neuro_san.internals.journals.intercepting_journal import InterceptingJournal
 from neuro_san.internals.journals.journal import Journal
 from neuro_san.internals.messages.agent_framework_message import AgentFrameworkMessage
 from neuro_san.internals.messages.base_message_dictionary_converter import BaseMessageDictionaryConverter
 from neuro_san.internals.run_context.factory.run_context_factory import RunContextFactory
+from neuro_san.internals.run_context.factory.master_tracing_context_factory import MasterTracingContextFactory
 from neuro_san.internals.run_context.interfaces.run_context import RunContext
 from neuro_san.message_processing.message_processor import MessageProcessor
 from neuro_san.message_processing.answer_message_processor import AnswerMessageProcessor
@@ -57,7 +61,7 @@ PATIENCE_ERRORS: Tuple[Type[Any], ...] = ResolverUtil.create_type_tuple([
 
 
 # pylint: disable=too-many-instance-attributes
-class DataDrivenChatSession:
+class DataDrivenChatSession(RunTarget):
     """
     ChatSession implementation that consolidates policy
     in using data-driven agent tool graphs.
@@ -76,6 +80,11 @@ class DataDrivenChatSession:
 
         self.front_man: FrontMan = None
         self.sly_data: Dict[str, Any] = {}
+
+        # This is the context policy container that pertains to the invocation
+        # of run_it()
+        self.invocation_context: InvocationContext = None
+        self.interceptor: InterceptingJournal = None
 
     async def set_up(self, invocation_context: InvocationContext,
                      chat_context: Dict[str, Any] = None):
@@ -107,7 +116,7 @@ class DataDrivenChatSession:
                    invocation_context: InvocationContext,
                    sly_data: Dict[str, Any] = None) -> Iterator[Dict[str, Any]]:
         """
-        Main entry-point method for accepting new user input
+        Performs a portion of the streaming_chat() responsibilities
 
         :param user_input: A string with the user's input
         :param invocation_context: The context policy container that pertains to the invocation
@@ -170,6 +179,7 @@ class DataDrivenChatSession:
                              chat_context: Dict[str, Any] = None):
         """
         Main streaming entry-point method for accepting new user input
+        invoked by DirectAgentSession and its friends.
 
         :param user_input: A string with the user's input
         :param invocation_context: The context policy container that pertains to the invocation
@@ -181,11 +191,50 @@ class DataDrivenChatSession:
         :return: Nothing.  Response values are put on a queue whose consumtion is
                 managed by the Iterator aspect of AsyncCollatingQueue on the InvocationContext.
         """
+        # Set up some member variable state so that run_it() can use it
+        self.invocation_context = invocation_context
+        journal: Journal = self.invocation_context.get_journal()
+        self.interceptor = InterceptingJournal(journal, origin=None)
+
+        # Set up an input message that will show up in an Observability/tracing app
+        input_message = AgentFrameworkMessage(content=user_input,
+                                              chat_context=chat_context,
+                                              sly_data=sly_data)
+
+        # Set up configuration for creating the tracing context.
+        # These are the bare minimum required to get output and metadata correct
+        # in the tracing reporting.
+        config: Dict[str, Any] = {
+            "interceptor": self.interceptor,
+            "invocation_context": self.invocation_context
+        }
+
+        # Get a toolkit-specific implementation for creating the tracing context
+        tracing_factory: ContextTypeTracingContextFactory = \
+            MasterTracingContextFactory.create_tracing_context_factory()
+        # For the factory args, we are our own run_target.
+        tracing_context: RunTarget = tracing_factory.create_tracing_context(config, run_target=self)
+
+        # Run the run_target that was given back by the factory.
+        await tracing_context.run_it(input_message)
+
+    async def run_it(self, inputs: AgentFrameworkMessage) -> AgentFrameworkMessage:
+        """
+        This method is effectively a callback which is invoked within
+        the tracing context infrastructure for the toolkit/context_type.
+
+        :param inputs: An AgentFrameworkMessage populated with the user's input.
+        :return: The user input. (Outputs are handled by the tracing context infrastructure.)
+        """
+        user_input: str = inputs.content
+        sly_data: Dict[str, Any] = inputs.sly_data
+        chat_context: Dict[str, Any] = inputs.chat_context
+
         if self.front_man is None:
-            await self.set_up(invocation_context, chat_context)
+            await self.set_up(self.invocation_context, chat_context)
 
         # Save information about chat
-        chat_messages: Iterator[Dict[str, Any]] = await self.chat(user_input, invocation_context, sly_data)
+        chat_messages: Iterator[Dict[str, Any]] = await self.chat(user_input, self.invocation_context, sly_data)
         message_list: List[Dict[str, Any]] = list(chat_messages)
 
         # Determine the chat_context to enable continuing the conversation
@@ -214,15 +263,18 @@ class DataDrivenChatSession:
         return_sly_data: Dict[str, Any] = redactor.filter_config(self.sly_data)
 
         # Stream over chat state as the last message
+        # Use the interceptor to write the message.
+        # This guy wraps the journal from the invocation context and listens to the
+        # messages coming across, which allows us to report to the tracing infrastructure
+        # at the end of the tracing context.
         message = AgentFrameworkMessage(content=answer, chat_context=return_chat_context,
                                         sly_data=return_sly_data, structure=structure)
-        journal: Journal = invocation_context.get_journal()
-        await journal.write_message(message, origin=None)
+        await self.interceptor.write_message(message, origin=None)
 
         # Put an end-marker on the queue to tell the consumer we truly are done
         # and it doesn't need to wait for any more messages.
         # The consumer await-s for queue.get()
-        queue: AsyncCollatingQueue = invocation_context.get_queue()
+        queue: AsyncCollatingQueue = self.invocation_context.get_queue()
 
         # The synchronous=True is necessary when an async HTTP request is at the get()-ing end of the queue,
         # as the journal messages come from inside a separate event loop from that request. The lock
@@ -232,12 +284,16 @@ class DataDrivenChatSession:
 
         # Now that we are done, tell the Reservationist that we used for this request
         # that there will be no more Reservations to corral.
-        reservationist: Reservationist = invocation_context.get_reservationist()
+        reservationist: Reservationist = self.invocation_context.get_reservationist()
         if reservationist is not None:
             await reservationist.close()
 
         # Close any objects on sly data that can be closed.
         await self.close_sly_data()
+
+        # Bogus output, but need something for interface
+        outputs: AgentFrameworkMessage = inputs
+        return outputs
 
     async def delete_resources(self):
         """

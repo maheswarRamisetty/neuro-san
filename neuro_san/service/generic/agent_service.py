@@ -105,6 +105,7 @@ class AgentService:
         self.llm_factory: ContextTypeLlmFactory = MasterLlmFactory.create_llm_factory(config)
         self.toolbox_factory: ContextTypeToolboxFactory = MasterToolboxFactory.create_toolbox_factory(config)
         self.async_executor_pool: AsyncioExecutorPool = server_context.get_executor_pool()
+
         # Load once
         self.llm_factory.load()
         self.toolbox_factory.load()
@@ -240,6 +241,7 @@ class AgentService:
         # Prepare
         factory = ExternalAgentSessionFactory(use_direct=False)
         invocation_context = SessionInvocationContext(
+            self.agent_name,
             factory,
             self.async_executor_pool,
             self.llm_factory,
