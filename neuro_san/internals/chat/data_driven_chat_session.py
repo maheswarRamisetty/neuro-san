@@ -196,12 +196,10 @@ class DataDrivenChatSession(RunTarget):
         journal: Journal = self.invocation_context.get_journal()
         self.interceptor = InterceptingJournal(journal, origin=None)
 
-        # Set up the input dictionary that will show up in an Observability/tracing app
-        inputs: Dict[str, Any] = {
-            "user_input": user_input,
-            "sly_data": sly_data,
-            "chat_context": chat_context
-        }
+        # Set up an input message that will show up in an Observability/tracing app
+        input_message = AgentFrameworkMessage(content=user_input,
+                                              chat_context=chat_context,
+                                              sly_data=sly_data)
 
         # Set up configuration for creating the tracing context.
         # These are the bare minimum required to get output and metadata correct
@@ -218,24 +216,19 @@ class DataDrivenChatSession(RunTarget):
         tracing_context: RunTarget = tracing_factory.create_tracing_context(config, run_target=self)
 
         # Run the run_target that was given back by the factory.
-        await tracing_context.run_it(inputs)
+        await tracing_context.run_it(input_message)
 
-    async def run_it(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+    async def run_it(self, inputs: AgentFrameworkMessage) -> AgentFrameworkMessage:
         """
         This method is effectively a callback which is invoked within
         the tracing context infrastructure for the toolkit/context_type.
 
-        :param inputs: A dictionary with the following keys:
-                "user_input": A string with the user's input
-                "sly_data": A mapping whose keys might be referenceable by agents, but whose
-                             values should not appear in agent chat text. Can be None.
-                "chat_context": A ChatContext dictionary that contains all the state necessary
-                                to carry on a previous conversation, possibly from a different server.
-        :return: A dictionary with the user's input
+        :param inputs: An AgentFrameworkMessage populated with the user's input.
+        :return: The user input. (Outputs are handled by the tracing context infrastructure.)
         """
-        user_input: str = inputs.get("user_input")
-        sly_data: Dict[str, Any] = inputs.get("sly_data")
-        chat_context: Dict[str, Any] = inputs.get("chat_context")
+        user_input: str = inputs.content
+        sly_data: Dict[str, Any] = inputs.sly_data
+        chat_context: Dict[str, Any] = inputs.chat_context
 
         if self.front_man is None:
             await self.set_up(self.invocation_context, chat_context)
@@ -299,7 +292,7 @@ class DataDrivenChatSession(RunTarget):
         await self.close_sly_data()
 
         # Bogus output, but need something for interface
-        outputs: Dict[str, Any] = inputs
+        outputs: AgentFrameworkMessage = inputs
         return outputs
 
     async def delete_resources(self):
