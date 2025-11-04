@@ -85,6 +85,7 @@ class DataDrivenChatSession(RunTarget):
         # of run_it()
         self.invocation_context: InvocationContext = None
         self.interceptor: InterceptingJournal = None
+        self.original_input_message: AgentFrameworkMessage = None
 
     async def set_up(self, invocation_context: InvocationContext,
                      chat_context: Dict[str, Any] = None):
@@ -197,9 +198,15 @@ class DataDrivenChatSession(RunTarget):
         self.interceptor = InterceptingJournal(journal, origin=None)
 
         # Set up an input message that will show up in an Observability/tracing app
-        input_message = AgentFrameworkMessage(content=user_input,
-                                              chat_context=chat_context,
-                                              sly_data=sly_data)
+        # We keep this guy around for the duration of the chat session so that this class
+        # has a pristine copy of what the inputs for use within run_it().
+        self.original_input_message = AgentFrameworkMessage(content=user_input,
+                                                            chat_context=chat_context,
+                                                            sly_data=sly_data)
+        # Make a copy of the input message for use in the tracing context
+        # We can't use the same object as original_input_message because
+        # the tracing infrastructure ends up transforming the message for display.
+        input_message_for_show = AgentFrameworkMessage(trace_source=self.original_input_message)
 
         # Set up configuration for creating the tracing context.
         # These are the bare minimum required to get output and metadata correct
@@ -216,7 +223,7 @@ class DataDrivenChatSession(RunTarget):
         tracing_context: RunTarget = tracing_factory.create_tracing_context(config, run_target=self)
 
         # Run the run_target that was given back by the factory.
-        await tracing_context.run_it(input_message)
+        await tracing_context.run_it(input_message_for_show)
 
     async def run_it(self, inputs: AgentFrameworkMessage) -> AgentFrameworkMessage:
         """
@@ -226,9 +233,12 @@ class DataDrivenChatSession(RunTarget):
         :param inputs: An AgentFrameworkMessage populated with the user's input.
         :return: The user input. (Outputs are handled by the tracing context infrastructure.)
         """
-        user_input: str = inputs.content
-        sly_data: Dict[str, Any] = inputs.sly_data
-        chat_context: Dict[str, Any] = inputs.chat_context
+        # Get all our real input values from the original_input_message.
+        # If we got it from the inputs arg, we'd get the for-show message
+        # which has fields rearranged and even redacted.
+        user_input: str = self.original_input_message.content
+        sly_data: Dict[str, Any] = self.original_input_message.sly_data
+        chat_context: Dict[str, Any] = self.original_input_message.chat_context
 
         if self.front_man is None:
             await self.set_up(self.invocation_context, chat_context)

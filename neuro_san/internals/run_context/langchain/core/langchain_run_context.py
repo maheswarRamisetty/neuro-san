@@ -541,11 +541,18 @@ class LangChainRunContext(RunContext):
         Update internal state based on the InvocationContext instance passed in.
         :param invocation_context: The context policy container that pertains to the invocation
         """
+        old_interceptor: InterceptingJournal = self.interceptor
         self.invocation_context = invocation_context
 
         # Make a nested chain where each journal is wrapped by the next
         base_journal: Journal = self.invocation_context.get_journal()
         self.interceptor = InterceptingJournal(wrapped_journal=base_journal, origin=self.origin)
+
+        # The SystemMessage has already been written to the journal
+        # need to transfer it over when this shift happens.
+        if old_interceptor is not None:
+            for message in old_interceptor.get_messages():
+                self.interceptor.write_unwrapped_message(message, self.origin)
         self.journal = OriginatingJournal(self.interceptor, self.origin, self.chat_history)
 
     def update_from_chat_context(self, chat_context: Dict[str, Any]):

@@ -54,6 +54,20 @@ class InterceptingJournal(Journal):
         """
         # Let the wrapped guy do what he's gunna do
         await self.wrapped_journal.write_message(message, origin)
+        self.write_unwrapped_message(message, origin)
+
+    def write_unwrapped_message(self, message: BaseMessage, origin: List[Dict[str, Any]]):
+        """
+        Write a message to this journal without going through the wrapped journal.
+
+        :param message: The BaseMessage instance to write to the journal
+        :param origin: A List of origin dictionaries indicating the origin of the run.
+                The origin can be considered a path to the original call to the front-man.
+                Origin dictionaries themselves each have the following keys:
+                    "tool"                  The string name of the tool in the spec
+                    "instantiation_index"   An integer indicating which incarnation
+                                            of the tool is being dealt with.
+        """
 
         # Only consider messages that match the same origin as what we care about.
         if origin == self.origin:
