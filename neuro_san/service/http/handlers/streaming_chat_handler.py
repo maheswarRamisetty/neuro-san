@@ -15,6 +15,8 @@ See class comment for details
 from typing import Any
 from typing import Dict
 
+from http import HTTPStatus
+
 import asyncio
 import contextlib
 import json
@@ -92,7 +94,7 @@ class StreamingChatHandler(BaseRequestHandler):
                     result_generator = None
             self.logger.info(metadata, "Chat request timeout for %s in %f seconds.", agent_name, request_timeout)
             # Recommended HTTP response code: Service Unavailable
-            self.set_status(503)
+            self.set_status(HTTPStatus.SERVICE_UNAVAILABLE)
             self.write({"error": "Request timeout"})
 
         except Exception as exc:  # pylint: disable=broad-exception-caught
