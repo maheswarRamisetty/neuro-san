@@ -146,7 +146,10 @@ class ServerMainLoop:
                                 default=int(os.environ.get("AGENT_CHAT_REQUEST_TIMEOUT",
                                                            DEFAULT_HTTP_CHAT_REQUEST_TIMEOUT_SECONDS)),
                                 help="Http server timeout for processing chat request in seconds "
-                                     "0 means no timeout is used")
+                                     "(0 means no timeout is used)."
+                                     "NOTE: this parameter is temporary and will be removed in future releases"
+                                     " to be replaced by per-agent timeout configuration instead."
+                                )
         arg_parser.add_argument("--mcp_enable", type=str,
                                 default=os.environ.get("AGENT_MCP_ENABLE", "false"),
                                 help="'true' if MCP protocol service should be enabled")
