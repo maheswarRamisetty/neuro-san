@@ -31,6 +31,7 @@ Sub-keys to those dictionaries will be described in the next-level down heading 
     - [verbose](#verbose)
     - [max_iterations](#max_iterations)
     - [max_execution_seconds](#max_execution_seconds)
+    - [request_timeout_seconds](#request_timeout_seconds)
     - [error_formatter](#error_formatter)
     - [error_fragments](#error_fragments)
     - [tools](#tools)
@@ -299,6 +300,12 @@ effecting your favorite LLM provider and you start to see "Agent stopped due to 
 An integer controlling the maximum amount of wall clock time (in seconds) to spend in the langchain
 [AgentExecutor](https://api.python.langchain.com/en/latest/agents/langchain.agents.agent.AgentExecutor.html)
 used for the agent.  Default is set for 2 minutes.
+
+### request_timeout_seconds
+
+An integer controlling the maximum amount of wall clock time (in seconds) to wait for any single
+client-side chat request to finish. When this time is exceeded, the request is aborted and a timeout error
+is reported back to the client.  Default is set for 0 seconds, which indicates no timeout.
 
 ### error_formatter
 
