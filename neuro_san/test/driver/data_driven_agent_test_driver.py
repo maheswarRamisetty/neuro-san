@@ -141,7 +141,8 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
                 raise AssertionError(message) from one_assert
 
     # pylint: disable=too-many-locals
-    def one_iteration(self, test_case: Dict[str, Any], asserts: AssertForwarder, timeouts: List[Timeout], fixture_hocon_name):
+    def one_iteration(self, test_case: Dict[str, Any], asserts: AssertForwarder,
+                       timeouts: List[Timeout], fixture_hocon_name):
         """
         Perform a single iteration on the test case.
 
@@ -233,7 +234,7 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
         now = datetime.now()
         datestr: str = now.strftime("%Y-%m-%d-%H:%M:%S")
         thinking_file: str = f"/tmp/agent_test/{datestr}_agent.txt"
-        # Added fixture_hocon_name to thinking_dir 
+        # Added fixture_hocon_name to thinking_dir
         # for better uniqueness and traceability across different test fixtures.
         thinking_dir: str = f"/tmp/agent_test/{datestr}_{fixture_hocon_name}_agent"
 
@@ -256,7 +257,8 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
         chat_filter: Dict[str, Any] = {
             "chat_filter_type": interaction.get("chat_filter", "MINIMAL")
         }
-        request: Dict[str, Any] = input_processor.formulate_chat_request(text, sly_data, chat_context, chat_filter)
+        request: Dict[str, Any] = input_processor.formulate_chat_request(text,
+                                                                          sly_data, chat_context, chat_filter)
 
         # Prepare any interaction timeout
         if interaction.get("timeout_in_seconds") is not None:
