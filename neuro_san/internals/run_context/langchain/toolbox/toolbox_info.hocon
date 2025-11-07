@@ -204,43 +204,23 @@
     # Note: Parameters are optional and may be omitted if not required.
     # See "parameters" section in https://github.com/cognizant-ai-lab/neuro-san/blob/main/docs/agent_hocon_reference.md
 
-    # Tool for performing basic web searches using duckduckgo.
-    "website_search": {
-        "class": "web_search.WebSearch",
-        "description": "Assist caller with searching an url on the web by using your tool.",
+    "get_current_date_time": {
+        "class": "get_current_date_time.GetCurrentDateTime",
+        "description": "Get the current date and time for a specified timezone. utc_offset has precedence over iana_timezone.",
         "parameters": {
             "type": "object",
             "properties": {
-                "search_terms": {
-                    "type": "string",
-                    "description": "Search terms to return options."
+                "utc_offset": {
+                    "type": "int",
+                    "description": "The UTC offset in hours (e.g., -5 for EST, 1 for CET). Must be between -24 and 24. Has precedence over iana_timezone."
                 },
-            },
-            "required": ["search_terms"]
-        },
-    },
-
-    # Tool for retrieving contextually relevant information from a list of URLs using a retrieval-augmented generation (RAG) strategy.
-    "rag_retriever": {
-        "class": "rag.Rag",
-        "description": "Retrieve information on the given urls",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "urls": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "List of url to retrieve info from"
-                },
-                "query": {
+                "iana_timezone": {
                     "type": "string",
-                    "description": "Query for retrieval"
+                    "description": "The IANA timezone string (e.g., 'America/New_York', 'Europe/Berlin')."
                 }
             },
-            "required": ["urls", "query"]
-        },
-    },
+            "required": []
+        }
+    }
 
 }

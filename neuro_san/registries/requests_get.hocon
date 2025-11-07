@@ -50,11 +50,11 @@
         {
             "name": "web_browse_tool",
             # The "toolbox" specifies which tool in the toolbox should be instantiated.
-            # In this case, "tavily_search" is chosen, which allows querying Tavily for search results.
+            # In this case, "requests_get" is chosen, which implements HTTP GET request.
 
             # Note that tools in toolbox can be either langchain tools or coded tools
             
-            # Documentation on the Tavily search tool:
+            # Documentation on the request get tool:
             # - LangChain's Requests Get Tool: https://python.langchain.com/api_reference/community/tools/langchain_community.tools.requests.tool.RequestsGetTool.html
             
             "toolbox": "requests_get",
@@ -88,8 +88,7 @@
             #
             # Coded Tools
             #
-            #   - "website_search": Search internet with DuckduckgoSearch.
-            #   - "rag_retriever": Perform retrival-augmented generation on given urls.
+            #   - "get_current_date_time": Return current date and time for a specified timezone.
             #
             # Each of these tools may require specific arguments in the "args" section.
             # Refer to the tool's documentation for more details.

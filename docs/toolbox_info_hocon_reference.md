@@ -136,7 +136,7 @@ Fully qualified class name in the format `tool_module.ToolClass`. The `class` mu
 Example:
 
 ```hocon
-"class": "web_search.WebSearch"
+"class": "get_current_date_time.GetCurrentDateTime"
 ```
 
 #### [`description`](./agent_hocon_reference.md#description)

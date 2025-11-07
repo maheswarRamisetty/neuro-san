@@ -21,8 +21,8 @@
 {
     # Optional metadata describing this agent network
     "metadata": {
-        "description": "Example of web search using RAG.",
-        "tags": ["example", "web_search", "rag"],
+        "description": "Gets current date and time for a specified timezone.",
+        "tags": ["example", "utility"],
     },
     "llm_config": {
         "model_name": "gpt-4o",
@@ -40,7 +40,7 @@
         # call each other is defined within their own specs.
         # This could be a graph, potentially even with cycles.
         {
-            "name": "searcher",
+            "name": "date_time_provider",
 
             # Note that there are no parameters defined for this guy's "function" key.
             # This is the primary way to identify this tool as a front-man,
@@ -48,40 +48,42 @@
 
             "function": {
                 # The description acts as an initial prompt. 
-                "description": "Assist caller with searching an url.",
+                "description": "Assist caller with current date and time.",
             },
 
-            "instructions": """
-Use your tool to respond to the inquiry.
-""",
-            "tools": ["search_tool", "rag_tool"]
+            "instructions": "Use your tool to provide current date and time.",
+            "tools": ["current_date_time"]
         },
-
-        # The tools "website_search" (class: web_search_global.WebSearch) and
-        # "rag_retriever" (class: rag.Rag) are shared CodedTools that can be used
-        # across all agent networks. Their argument schemas are predefined in 
-        # toolbox_info.hocon. Additional shared CodedTools can be created by 
-        # implementing the module in AGENT_TOOL_PATH and defining the corresponding 
-        # argument schema in AGENT_TOOLBOX_INFO_FILE.
-
         {
-            "name": "search_tool",
-            "toolbox": "website_search"
-        },
+            "name": "current_date_time",
+            "toolbox": "get_current_date_time"
+            # The "toolbox" specifies which tool in the toolbox should be used by the agent.
+            # In this case, "get_current_date_time" is chosen, which return current date and time
+            # for a specified timezone.
+            #
+            # Note that tools in toolbox can be either langchain tools or coded tools
 
-        {
-            "name": "rag_tool",
-            "toolbox": "rag_retriever"
-        }
-    ]
-
-    # -------------------------------------------------------------------------------
+            "args": {
+                "utc_offset": 0
+            }
+            # "args" contains the parameters that will be passed to the selected tool.
+            # These arguments must align with the tool’s expected function signature.
+            # 
+            # For "get_current_date_time", one of the parameters is "utc_offset", 
+            # which specifies the timezone offset from UTC.
+            # 
+            # Other tools will have different required/optional arguments, so be sure to refer to
+            # the tool’s documentation to understand what parameters can be configured.
+            #
+            # Note that for shared coded tools, the parameters can also be provided by the calling agent at runtime.
+            # However, the values provided in "args" here will have precedence over those provided at runtime.
+            #
+            # -------------------------------------------------------------------------------
             # CURRENTLY AVAILABLE TOOLS IN TOOLBOX
             # The following tools can be used as values for "toolbox":
             #
             # Langchain Tools
             #
-            #   - "tavily_search": Uses Tavily for search queries.
             #   - "requests_get": Makes an HTTP GET request.
             #   - "requests_post": Makes an HTTP POST request.
             #   - "requests_patch": Makes an HTTP PATCH request.
@@ -91,8 +93,7 @@ Use your tool to respond to the inquiry.
             #
             # Coded Tools
             #
-            #   - "website_search": Search internet with DuckduckgoSearch.
-            #   - "rag_retriever": Perform retrival-augmented generation on given urls.
+            #   - "get_current_date_time": Return current date and time for a specified timezone.
             #
             # Each of these tools may require specific arguments in the "args" section.
             # Refer to the tool's documentation for more details.
@@ -108,4 +109,6 @@ Use your tool to respond to the inquiry.
             #
             #   See https://github.com/cognizant-ai-lab/neuro-san/blob/main/docs/toolbox_info_hocon_reference.md
             # -------------------------------------------------------------------------------
+        }
+    ]
 }

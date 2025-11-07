@@ -489,7 +489,7 @@ It is possible for any agent to reference another agent on the same server by ad
 in front of the served agent's name.  This is typically the stem of an agent network hocon file in
 a deployment's registries directory.
 
-Example: `/website_search` or `/math_guy`
+Example: `/date_time` or `/math_guy`
 
 This allows common agent network definitions to be used as functions for other local networks.
 
@@ -598,7 +598,7 @@ For more information on tool schema, see the [toolbox_info_hocon_reference](./to
 
 Example networks using tools from toolbox:
 
-- [website_rag.hocon](../neuro_san/registries/website_rag.hocon) which uses predefined
+- [date_time_timezone.hocon](../neuro_san/registries/date_time_timezone.hocon) which uses predefined
 coded tools.
 
 ### args

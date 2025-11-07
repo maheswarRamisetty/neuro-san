@@ -72,11 +72,6 @@ validators>=0.22.0
 # For chat-based cli tools not used in deployment
 timedinput>=0.1.1
 
-# The only reason we include this is for the website_search example
-# to work out-of-the-box.
-# This is not used in any part of neuro-san core operations.
-ddgs>=9.4.1
-
 # Structure parsing
 json-repair>=0.47.3,<1.0
 

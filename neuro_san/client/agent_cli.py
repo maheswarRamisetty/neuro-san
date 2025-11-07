@@ -48,6 +48,7 @@ class AgentCli:
 
     DEFAULT_INPUT: str = "DEFAULT"
     DEFAULT_PROMPT: str = "Please enter your response ('quit' to terminate):\n"
+    TIMEOUT_SIGNAL: str = "<===TIMEOUT===>"
 
     def __init__(self):
         """
@@ -201,7 +202,11 @@ Some suggestions:
             if user_input is None:
                 if prompt is not None and len(prompt) > 0:
                     user_input = timedinput(prompt, timeout=timeout,
-                                            default=self.DEFAULT_INPUT)
+                                            default=self.TIMEOUT_SIGNAL)
+                    if user_input == self.TIMEOUT_SIGNAL:
+                        # Timeout occurred - nobody is talking to us.
+                        print(f"\nNo input received after {timeout} seconds. Exiting.\n")
+                        break
                 else:
                     user_input = None
 
