@@ -100,6 +100,8 @@ class AsyncAgentService:
         self.toolbox_factory: ContextTypeToolboxFactory = MasterToolboxFactory.create_toolbox_factory(config)
         self.async_executor_pool: AsyncioExecutorPool = server_context.get_executor_pool()
 
+        self.request_timeout_seconds: float = agent_network.get_request_timeout_seconds()
+
         # Load once.
         self.llm_factory.load()
         self.toolbox_factory.load()
@@ -109,6 +111,12 @@ class AsyncAgentService:
         :return: The number of currently active requests
         """
         return self.request_counter.get_count()
+
+    def get_request_timeout_seconds(self) -> float:
+        """
+        :return: The request timeout in seconds for this service;
+        """
+        return self.request_timeout_seconds
 
     async def function(self, request_dict: Dict[str, Any],
                        request_metadata: Dict[str, Any]) \

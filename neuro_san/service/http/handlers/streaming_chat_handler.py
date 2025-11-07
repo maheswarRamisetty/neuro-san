@@ -48,7 +48,7 @@ class StreamingChatHandler(BaseRequestHandler):
 
         self.application.start_client_request(metadata, f"{agent_name}/streaming_chat")
         # Set up request timeout if it is specified:
-        request_timeout: float = float(self.server_context.get_chat_request_timeout_seconds())
+        request_timeout: float = service.get_request_timeout_seconds()
         if request_timeout <= 0.0:
             # For asyncio.timeout(), None means no timeout:
             request_timeout = None

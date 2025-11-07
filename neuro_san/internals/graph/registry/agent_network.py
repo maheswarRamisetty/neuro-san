@@ -151,3 +151,14 @@ However, the front man must not be:
         :return: The network name of this AgentNetwork
         """
         return self.name
+
+    def get_request_timeout_seconds(self) -> float:
+        """
+        :return: The request timeout in seconds for this AgentNetwork;
+                 if not defined, returns 0.0
+        """
+        extractor = DictionaryExtractor(self.config)
+        timeout = extractor.get("request_timeout_seconds")
+        if timeout is None:
+            return 0.0
+        return float(timeout)

@@ -46,12 +46,10 @@ class McpToolsProcessor:
     def __init__(self,
                  logger: HttpLogger,
                  network_storage_dict: AgentNetworkStorage,
-                 agent_policy: AgentAuthorizer,
-                 tool_timeout_seconds: float):
+                 agent_policy: AgentAuthorizer):
         self.logger: HttpLogger = logger
         self.network_storage_dict: AgentNetworkStorage = network_storage_dict
         self.agent_policy: AgentAuthorizer = agent_policy
-        self.tool_timeout_seconds: float = tool_timeout_seconds
 
     async def list_tools(self, request_id, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -93,11 +91,15 @@ class McpToolsProcessor:
             # No such tool is found:
             return McpErrorsUtil.get_tool_error(request_id, f"Tool not found: {tool_name}")
         service: AsyncAgentService = service_provider.get_service()
+        tool_timeout_seconds: float = service.get_request_timeout_seconds()
+        if tool_timeout_seconds <= 0.0:
+            # For asyncio.timeout(), None means no timeout:
+            tool_timeout_seconds = None
 
         input_request: Dict[str, Any] = self._get_chat_input_request(prompt)
         response_text: str = ""
         try:
-            async with asyncio.timeout(self.tool_timeout_seconds):
+            async with asyncio.timeout(tool_timeout_seconds):
                 result_generator = service.streaming_chat(input_request, metadata)
                 async for result_dict in result_generator:
                     partial_response: str = await self._extract_tool_response_part(result_dict)
@@ -111,7 +113,7 @@ class McpToolsProcessor:
         except asyncio.TimeoutError:
             self.logger.info(metadata,
                              "Chat tool timeout for %s in %f seconds.",
-                             tool_name, self.tool_timeout_seconds)
+                             tool_name, tool_timeout_seconds)
             return McpErrorsUtil.get_tool_error(request_id, f"Timeout for tool {tool_name}")
 
         except Exception as exc:  # pylint: disable=broad-exception-caught
