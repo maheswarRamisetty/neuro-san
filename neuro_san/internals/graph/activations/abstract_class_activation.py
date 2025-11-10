@@ -273,6 +273,8 @@ Some hints:
                 retval = await coded_tool.async_invoke(self.arguments, self.sly_data)
 
             except NotImplementedError:
+                # That didn't work, so try running the synchronous method as an async task
+                # within the confines of the proper executor.
                 # Warn that there is a better alternative
                 message = f"""
 Running CodedTool class {coded_tool.__class__.__name__}.invoke() synchronously in an asynchronous environment.
@@ -288,6 +290,8 @@ This can lead to performance problems when running within a server. Consider por
                 retval = await loop.run_in_executor(None, coded_tool.invoke, arguments, sly_data)
         # pylint: disable=broad-exception-caught
         except Exception as exception:
+            # There was an error invoking the CodedTool.
+            # Log it and return an error string.
             tool_error = True
             retval = f"Error: {str(exception)}"
             self.logger.error("Error invoking CodedTool %s: %s", coded_tool.__class__.__name__, str(exception))
