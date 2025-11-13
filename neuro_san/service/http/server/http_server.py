@@ -219,8 +219,7 @@ class HttpServer(AgentAuthorizer, AgentStateListener):
         # Register MCP "root" handler for all MCP requests
         # if MCP server is enabled:
         if self.server_context.get_mcp_server_context().is_enabled():
-            mcp_request_initialize_data: Dict[str, Any] = self.build_mcp_request_data()
-            handlers.append((r"/mcp", McpRootHandler, mcp_request_initialize_data))
+            handlers.append((r"/mcp", McpRootHandler, request_initialize_data))
 
         return HttpServerApp(handlers, requests_limit, logger, self.forwarded_request_metadata)
 
@@ -265,9 +264,10 @@ class HttpServer(AgentAuthorizer, AgentStateListener):
         :param agent_name: name of an agent
         :param source: The AgentStorageSource source of the message
         """
-        # Endpoints configuration has not changed,
-        # so nothing to do here, actually.
-        _ = agent_name
+        agent_service_provider: AsyncAgentServiceProvider = self.allowed_agents.get(agent_name, None)
+        if agent_service_provider is not None:
+            agent_service_provider.reset_service()
+            self.logger.info({}, "Reset service for modified agent %s", agent_name)
 
     def build_request_data(self) -> Dict[str, Any]:
         """
@@ -279,16 +279,4 @@ class HttpServer(AgentAuthorizer, AgentStateListener):
             "forwarded_request_metadata": self.forwarded_request_metadata,
             "openapi_service_spec_path": self.openapi_service_spec_path,
             "server_context": self.server_context
-        }
-
-    def build_mcp_request_data(self) -> Dict[str, Any]:
-        """
-        Build request data for MCP request handler.
-        :return: a dictionary with request data to be passed to an MCP handler.
-        """
-        return {
-            "agent_policy": self,
-            "forwarded_request_metadata": self.forwarded_request_metadata,
-            "mcp_context": self.server_context.get_mcp_server_context(),
-            "network_storage_dict": self.server_context.get_network_storage_dict()
         }
