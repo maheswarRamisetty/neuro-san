@@ -21,7 +21,8 @@
 {
     # Optional metadata describing this agent network
     "metadata": {
-        "description": "Simple agent network consisting of a frontman, a lower level agent, and a MCP tool",
+        "description": """Simple agent network consisting of a frontman, a lower level agent,
+        and a MCP tool that interacts with GitHub API requiring authentication.""",
         "tags": ["example", "mcp", "github", "authentication", "sly_data"],
     },
     "llm_config": {
