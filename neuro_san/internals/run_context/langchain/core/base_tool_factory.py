@@ -153,6 +153,9 @@ class BaseToolFactory:
         """
         # By default, assume no allowed tools. This may get updated below or in the LangChainMcpAdadter.
         allowed_tools: List[str] = None
+        # Get headers from sly_data if available
+        headers: Dict[str, Any] = self.tool_caller.sly_data.get("headers")
+
         if isinstance(mcp_info, str):
             server_url: str = mcp_info
         else:
@@ -161,7 +164,7 @@ class BaseToolFactory:
 
         try:
             mcp_adapter = LangChainMcpAdapter()
-            mcp_tools: List[BaseTool] = await mcp_adapter.get_mcp_tools(server_url, allowed_tools)
+            mcp_tools: List[BaseTool] = await mcp_adapter.get_mcp_tools(server_url, allowed_tools, headers)
 
         # MCP errors are nested exceptions.
         except ExceptionGroup as nested_exception:

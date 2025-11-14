@@ -88,11 +88,14 @@ class DataDrivenChatSession(RunTarget):
         self.original_input_message: AgentFrameworkMessage = None
 
     async def set_up(self, invocation_context: InvocationContext,
+                     sly_data: Dict[str, Any] = None,
                      chat_context: Dict[str, Any] = None):
         """
         Resets or sets the instance up for the first time.
         :param invocation_context: The context policy container that pertains to the invocation
                     of the agent.
+        :param sly_data: A mapping whose keys might be referenceable by agents, but whose
+                 values should not appear in agent chat text. Can be None.
         :param chat_context: A ChatContext dictionary that contains all the state necessary
                 to carry on a previous conversation, possibly from a different server.
         """
@@ -104,6 +107,14 @@ class DataDrivenChatSession(RunTarget):
 
         # Reset what we might have created before.
         await self.delete_resources()
+
+        # Update sly data, if any.
+        # Note that since this instance is the owner of the sly_data,
+        # any update here should get transmitted to all the other graph components
+        # because it is expected they share the reference and only interact with it
+        # in a read-only fashion.
+        if sly_data is not None:
+            self.sly_data.update(sly_data)
 
         run_context: RunContext = RunContextFactory.create_run_context(None, None,
                                                                        invocation_context=invocation_context,
@@ -137,17 +148,9 @@ class DataDrivenChatSession(RunTarget):
                 be streaming.
         """
         if self.front_man is None:
-            await self.set_up(invocation_context)
+            await self.set_up(invocation_context, sly_data)
         else:
             self.front_man.update_invocation_context(invocation_context)
-
-        # Update sly data, if any.
-        # Note that since this instance is the owner of the sly_data,
-        # any update here should get transmitted to all the other graph components
-        # because it is expected they share the reference and only interact with it
-        # in a read-only fashion.
-        if sly_data is not None:
-            self.sly_data.update(sly_data)
 
         try:
             # DEF - drill further down for iterator from here to enable getting
@@ -241,7 +244,7 @@ class DataDrivenChatSession(RunTarget):
         chat_context: Dict[str, Any] = self.original_input_message.chat_context
 
         if self.front_man is None:
-            await self.set_up(self.invocation_context, chat_context)
+            await self.set_up(self.invocation_context, sly_data, chat_context)
 
         # Save information about chat
         chat_messages: Iterator[Dict[str, Any]] = await self.chat(user_input, self.invocation_context, sly_data)
