@@ -40,7 +40,24 @@
             "name": "github_manager",
             "instructions": "Use your tool to respond to the inquiry on a specific github repo.",
             "function": {
-                "description": "Assist user with answer github tools."
+                "description": "Assist user with answer github tools.",
+                "sly_data_schema": {
+                    "type": "object",
+                    "properties": {
+                        "headers": {
+                            "type": "object",
+                            "description": "HTTP headers to be sent with MCP tool requests.",
+                            "properties": {
+                                "Authorization": {
+                                    "type": "string",
+                                    "description": "Authorization header for GitHub API access, e.g., 'Bearer <token_value>'."
+                                }
+                            },
+                            "required": ["Authorization"]
+                        }
+                    },
+                    "required": ["headers"]
+                }
             },
             "tools": ["issue_getter"]
         },
@@ -48,7 +65,7 @@
             "name": "issue_getter",
             "instructions": "Use your tool to respond to the inquiry.",
             "function": {
-            "description": "Assist user with answer from deepwiki."
+                "description": "Assist user with answer from deepwiki."
             }
             "tools": [
                 {
@@ -63,11 +80,20 @@
                     # Furthermore, it requires authentication via an Authorization header.
 
                     # Authentication can be provided via field "headers" in sly_data.
+                    # What fields are needed in sly_data depends on the authentication scheme
+                    # required by the MCP server being called.
                     # For example, sly_data can contain:
                     # {
                     #     "headers": {
                     #         "Authorization": "Bearer <token_value>"
                     #      }
+                    # }
+                    # or
+                    # {
+                    #     "headers": {
+                    #         "client_id": "<client_id_value>",
+                    #         "client_secret": "<client_secret_value>"
+                    #     }
                     # }
                 }
             ]
