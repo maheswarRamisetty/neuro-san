@@ -21,6 +21,8 @@ from typing import List
 from typing import Optional
 
 import copy
+from logging import Logger
+from logging import getLogger
 import threading
 
 from langchain_core.tools import BaseTool
@@ -42,6 +44,7 @@ class LangChainMcpAdapter:
         Constructor
         """
         self.client_allowed_tools: List[str] = []
+        self.logger: Logger = getLogger(self.__class__.__name__)
 
     @staticmethod
     def _load_mcp_clients_info():
@@ -82,7 +85,11 @@ class LangChainMcpAdapter:
         # Try to look up authentication details first from the sly data then from the MCP clients info.
         headers_dict: Dict[str, Any] = headers or self._mcp_clients_info.get(server_url, {}).get("headers")
         if headers_dict:
-            mcp_tool_dict["headers"] = copy.copy(headers_dict)
+            if isinstance(headers_dict, dict):
+                # Use a copy to avoid modifying the original headers dictionary.
+                mcp_tool_dict["headers"] = copy.copy(headers_dict)
+            else:
+                self.logger.error("MCP client headers for server %s must be a dictionary.",  server_url)
 
         client = MultiServerMCPClient(
             {"server": mcp_tool_dict}

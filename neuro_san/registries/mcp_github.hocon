@@ -44,19 +44,26 @@
                 "sly_data_schema": {
                     "type": "object",
                     "properties": {
-                        "headers": {
+                        "http_headers": {
                             "type": "object",
                             "description": "HTTP headers to be sent with MCP tool requests.",
                             "properties": {
-                                "Authorization": {
-                                    "type": "string",
-                                    "description": "Authorization header for GitHub API access, e.g., 'Bearer <token_value>'."
+                                "https://api.githubcopilot.com/mcp": {
+                                    "type": "object",
+                                    "description": "URL for GitHub MCP server.",
+                                    "properties": {
+                                        "Authorization": {
+                                            "type": "string",
+                                            "description": "Authorization header for GitHub API access, e.g., 'Bearer <token_value>'."
+                                        }
+                                    },
+                                    "required": ["Authorization"]
                                 }
                             },
-                            "required": ["Authorization"]
+                            "required": ["https://api.githubcopilot.com/mcp"]
                         }
                     },
-                    "required": ["headers"]
+                    "required": ["http_headers"]
                 }
             },
             "tools": ["issue_getter"]
@@ -65,7 +72,7 @@
             "name": "issue_getter",
             "instructions": "Use your tool to respond to the inquiry.",
             "function": {
-                "description": "Assist user with answer from deepwiki."
+                "description": "Assist user with answer from github issues."
             }
             "tools": [
                 {
@@ -79,20 +86,19 @@
                     # This specific tool requires issue number, repo name, and owner name to be provided
                     # Furthermore, it requires authentication via an Authorization header.
 
-                    # Authentication can be provided via field "headers" in sly_data.
-                    # What fields are needed in sly_data depends on the authentication scheme
-                    # required by the MCP server being called.
+                    # Authentication can be provided via the "headers" field in sly_data.
+                    # The required fields depend on the authentication scheme expected by each MCP server.
+                    # Users may specify different authorization credentials for different MCP URLs.
                     # For example, sly_data can contain:
                     # {
                     #     "headers": {
-                    #         "Authorization": "Bearer <token_value>"
-                    #      }
-                    # }
-                    # or
-                    # {
-                    #     "headers": {
-                    #         "client_id": "<client_id_value>",
-                    #         "client_secret": "<client_secret_value>"
+                    #         "<MCP_URL_1>": {      
+                    #             "Authorization": "Bearer <token_value>"
+                    #         },
+                    #         "<MCP_URL_2>": {
+                    #             "client_id": "<client_id_value>",
+                    #             "client_secret": "<client_secret_value>"
+                    #         },
                     #     }
                     # }
                 }

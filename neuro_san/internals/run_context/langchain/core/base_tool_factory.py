@@ -153,14 +153,17 @@ class BaseToolFactory:
         """
         # By default, assume no allowed tools. This may get updated below or in the LangChainMcpAdadter.
         allowed_tools: List[str] = None
-        # Get headers from sly_data if available
-        headers: Dict[str, Any] = self.tool_caller.sly_data.get("headers")
+        # Get HTTP headers from sly_data if available
+        http_headers: Dict[str, Any] = self.tool_caller.sly_data.get("http_headers", {})
 
         if isinstance(mcp_info, str):
             server_url: str = mcp_info
         else:
             server_url = mcp_info.get("url")
             allowed_tools = mcp_info.get("tools")
+
+        # Get specific headers for the MCP server if available
+        headers: Dict[str, Any] = http_headers.get(server_url)
 
         try:
             mcp_adapter = LangChainMcpAdapter()
