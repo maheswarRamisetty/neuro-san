@@ -19,6 +19,7 @@ from typing import Dict
 from typing import List
 from typing import Union
 
+from os import environ
 from urllib.parse import ParseResult
 from urllib.parse import urlparse
 
@@ -70,6 +71,12 @@ class ExternalAgentParsing:
         # Special case for detecting localhost
         if host is None or len(host) == 0:
             host = "localhost"
+
+        if host == "localhost" and port is None:
+            # If we are localhost and no port was specified in the url,
+            # use the port that was configured for the server.
+            # If this is not set, it will default to None, which is fine.
+            port = environ.get("AGENT_HTTP_PORT")
 
         # Get the agent name from the URL by looking at the path
         # Remove any leading slashes from the path for the agent name.
