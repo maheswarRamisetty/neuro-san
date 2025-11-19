@@ -23,7 +23,6 @@ from neuro_san import TOP_LEVEL_DIR
 from neuro_san.internals.interfaces.dictionary_validator import DictionaryValidator
 from neuro_san.service.mcp.validation.mcp_request_validator import McpRequestValidator
 from neuro_san.service.mcp.interfaces.client_session_policy import ClientSessionPolicy
-from neuro_san.service.mcp.session.mcp_session_manager import McpSessionManager
 from neuro_san.service.mcp.session.mcp_no_sessions_policy import McpNoSessionsPolicy
 
 # MCP protocol version supported by this service
