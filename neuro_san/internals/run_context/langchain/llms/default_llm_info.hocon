@@ -54,6 +54,21 @@
         "max_output_tokens": 100000,
         "knowledge_cutoff": "09/30/2023",
     },
+    "gpt-5.1": {
+        "use_model_name": "gpt-5.1-2025-11-13",
+    },
+    "gpt-5.1-2025-11-13": {
+        "class": "openai",
+        "model_info_url": "https://platform.openai.com/docs/models/gpt-5.1",
+        "modalities": {
+            "input": [ "text", "image" ],
+            "output": [ "text" ],
+        },
+        "capabilities": [ "tools" ],
+        "context_window_size": 400000,
+        "max_output_tokens": 128000,
+        "knowledge_cutoff": "09/30/2024",
+    },
     "gpt-5": {
         "use_model_name": "gpt-5-2025-08-07",
     },
