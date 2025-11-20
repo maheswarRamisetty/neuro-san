@@ -176,6 +176,7 @@ class AbstractClassActivation(AbstractCallableActivation):
 
         return message
 
+    # pylint: disable=too-many-locals
     def resolve_class(self, class_name: str, module_name: str):
         """
         Resolve the class by trying progressively higher levels in the agent network hierarchy.
