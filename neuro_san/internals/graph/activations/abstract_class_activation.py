@@ -17,6 +17,8 @@
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
+from typing import Union
 
 from asyncio import AbstractEventLoop
 
@@ -138,7 +140,6 @@ class AbstractClassActivation(AbstractCallableActivation):
         """
         raise NotImplementedError
 
-    # pylint: disable=too-many-locals
     async def build(self) -> BaseMessage:
         """
         Main entry point to the class.
@@ -149,96 +150,19 @@ class AbstractClassActivation(AbstractCallableActivation):
 
         full_class_ref: str = self.get_full_class_ref()
         self.logger.info("Calling class %s", full_class_ref)
-        class_split = full_class_ref.split(".")
-        class_name = class_split[-1]
+        class_split: List[str] = full_class_ref.split(".")
+        class_name: str = class_split[-1]
         # Remove the class name from the end to get the module name
-        module_name = full_class_ref[:-len(class_name)]
+        module_name: str = full_class_ref[:-len(class_name)]
         # Remove any trailing .s
         while module_name.endswith("."):
             module_name = module_name[:-1]
 
         # Resolve the class and the method
-
-        # "this_agent_tool_path" is the root path from AGENT_TOOL_PATH plus the agent network name.
-        this_agent_tool_path: str = self.factory.get_agent_tool_path()
-        packages: List[str] = [this_agent_tool_path]
-        resolver: Resolver = Resolver(packages)
-
-        try:
-            python_class = resolver.resolve_class_in_module(class_name, module_name)
-        except (ValueError, AttributeError):
-            # Since the agent network can have hierarchical structure with "/", we have to reconstruct
-            # the AGENT_TOOL_PATH accordingly to find the correct root module.
-            agent_network_name: str = self.factory.agent_network.get_network_name()
-            agent_network_name_parts: List[str] = agent_network_name.split("/")
-            this_agent_tool_path_parts: List[str] = this_agent_tool_path.split(".")
-            agent_tool_path: str = ".".join(this_agent_tool_path_parts[:-len(agent_network_name_parts)])
-            packages = [agent_tool_path]
-            resolver = Resolver(packages)
-
-            try:
-                python_class = resolver.resolve_class_in_module(class_name, module_name)
-            except (ValueError, AttributeError) as second_exception:
-                agent_name: str = self.factory.get_name_from_spec(self.agent_tool_spec)
-                message = f"""
-    Could not find class "{class_name}"
-    in module "{module_name}"
-    under AGENT_TOOL_PATH "{agent_tool_path}"
-    for the agent called "{agent_name}"
-    in the agent network "{agent_network_name}".
-
-    Check these things:
-    1.  Is there a typo in your AGENT_TOOL_PATH?
-    2.  Expected to find a specific CodedTool for the given agent network in:
-        <AGENT_TOOL_PATH>/<agent_network>/<coded_tool_name>.py
-        Global CodedTools (shared across networks) should be located at:
-        <AGENT_TOOL_PATH>/<coded_tool_name>.py
-        a)  Does your AGENT_TOOL_PATH point to the correct directory?
-        b)  Does your CodedTool actually live in a module appropriately
-            named for your agent network?
-        c)  Does the module in the "class" designation for the agent {agent_name}
-            match what is in the filesystem?
-        d)  Does the specified class name match what is actually implemented in the file?
-        e)  If an agent network contains both specific and global CodedTools,
-            the global module must not have the same name as the agent network.
-    3. Is AGENT_TOOL_PATH findable from what is set for your PYTHONPATH?
-    """
-                raise ValueError(message) from second_exception
+        python_class: Type[Any] = self.resolve_class(class_name, module_name)
 
         # Instantiate the CodedTool
-        coded_tool: CodedTool = None
-        try:
-            if issubclass(python_class, BranchActivation):
-                # Allow for a combination of BranchActivation + CodedTool to allow
-                # for easier invocation of agents within code.
-                coded_tool = python_class(self.run_context, self.factory,
-                                          self.arguments, self.agent_tool_spec, self.sly_data)
-            else:
-                # Go with the no-args constructor as per the run-of-the-mill contract
-                coded_tool = python_class()
-        except TypeError as exception:
-            message: str = f"""
-Coded tool class {python_class} must take no orguments to its constructor.
-The standard pattern for CodedTools is to not have a constructor at all.
-
-Some hints:
-1)  If you are attempting to re-use/re-purpose your CodedTool implementation,
-    consider adding an "args" block to your specific agents. This will pass
-    whatever dictionary you specify there as extra key/value pairs to your
-    CodedTool's invoke()/async_invoke() method's args parameter in addition
-    to those provided by any calling LLM.
-2)  If you need something more dynamic that is shared amongst the CodedTools
-    of your agent network to handle a single request, consider lazy instantiation
-    of the object in question, and share a reference to that  object in the
-    sly_data dictionary. The lifetime will of that object will last as long
-    as the ruest itself is in motion.
-3)  Try very very hard to *not* use global variables/singletons to bypass this limitation.
-    Your CodedTool implementation is working in a multi-threaded, asynchronous
-    environment. If your first instinct is to reach for a global variable,
-    you are highly likely to diminish the performance for all other requests
-    on any server running your agent with your CodedTool.
-"""
-            raise TypeError(message) from exception
+        coded_tool: CodedTool = self.instantiate_coded_tool(python_class)
 
         if isinstance(coded_tool, CodedTool):
             # Invoke the CodedTool
@@ -251,6 +175,124 @@ Some hints:
         message = AIMessage(content=retval_str)
 
         return message
+
+    # pylint: disable=too-many-locals
+    def resolve_class(self, class_name: str, module_name: str):
+        """
+        Resolve the class by trying progressively higher levels in the agent network hierarchy.
+
+        :param class_name: The name of the class to resolve
+        :param module_name: The module name containing the class
+        :return: The resolved Python class
+        """
+        # "this_agent_tool_path" is the root path from AGENT_TOOL_PATH plus the agent network name.
+        this_agent_tool_path: str = self.factory.get_agent_tool_path()
+        agent_network_name: str = self.factory.agent_network.get_network_name()
+        agent_network_name_parts: List[str] = agent_network_name.split("/")
+        this_agent_tool_path_parts: List[str] = this_agent_tool_path.split(".")
+
+        python_class: Type[Any] = None
+        last_exception: Union[ValueError, AttributeError] = None
+
+        # Try resolving from most specific to most general (root level)
+        for i in range(len(agent_network_name_parts) + 1):
+            if i == 0:
+                # First attempt: try the most specific path
+                packages: List[str] = [this_agent_tool_path]
+            else:
+                # Subsequent attempts: remove one level at a time from the end
+                path_parts: List[str] = this_agent_tool_path_parts[:-i]
+                current_path: str = ".".join(path_parts)
+                packages = [current_path]
+
+            resolver = Resolver(packages)
+
+            try:
+                self.logger.info("Attempting to resolve class `%s` in module `%s` using path `%s`",
+                                 class_name, module_name, packages[0])
+                python_class = resolver.resolve_class_in_module(class_name, module_name)
+                break  # Successfully resolved, exit the loop
+            except (ValueError, AttributeError) as exception:
+                last_exception = exception
+                self.logger.warning("Failed to resolve class `%s` in module `%s` using path `%s`: %s",
+                                    class_name, module_name, packages[0], str(exception))
+                # Continue to the next level up
+                continue
+
+        # If we exhausted all levels without success, raise an error
+        if python_class is None:
+            agent_name: str = self.factory.get_name_from_spec(self.agent_tool_spec)
+            agent_tool_path: str = ".".join(this_agent_tool_path_parts[:-len(agent_network_name_parts)])
+            message = f"""
+Could not find class "{class_name}"
+in module "{module_name}"
+under AGENT_TOOL_PATH "{agent_tool_path}"
+for the agent called "{agent_name}"
+in the agent network "{agent_network_name}".
+
+Check these things:
+1.  Is there a typo in your AGENT_TOOL_PATH?
+2.  Expected to find a specific CodedTool for the given agent network in:
+    <AGENT_TOOL_PATH>/<agent_network>/<coded_tool_name>.py
+    Global CodedTools (shared across networks) should be located at:
+    <AGENT_TOOL_PATH>/<coded_tool_name>.py
+    a)  Does your AGENT_TOOL_PATH point to the correct directory?
+    b)  Does your CodedTool actually live in a module appropriately
+        named for your agent network?
+    c)  Does the module in the "class" designation for the agent {agent_name}
+        match what is in the filesystem?
+    d)  Does the specified class name match what is actually implemented in the file?
+    e)  If an agent network contains both specific and global CodedTools,
+        the global module must not have the same name as the agent network.
+3. Is AGENT_TOOL_PATH findable from what is set for your PYTHONPATH?
+"""
+            self.logger.error(message)
+            raise ValueError(message) from last_exception
+
+        return python_class
+
+    def instantiate_coded_tool(self, python_class) -> CodedTool:
+        """
+        Instantiate the CodedTool from the resolved class.
+
+        :param python_class: The Python class to instantiate
+        :return: An instance of the CodedTool
+        """
+        coded_tool: CodedTool = None
+        try:
+            if issubclass(python_class, BranchActivation):
+                # Allow for a combination of BranchActivation + CodedTool to allow
+                # for easier invocation of agents within code.
+                coded_tool = python_class(self.run_context, self.factory,
+                                          self.arguments, self.agent_tool_spec, self.sly_data)
+            else:
+                # Go with the no-args constructor as per the run-of-the-mill contract
+                coded_tool = python_class()
+        except TypeError as exception:
+            message: str = f"""
+Coded tool class {python_class} must take no arguments to its constructor.
+The standard pattern for CodedTools is to not have a constructor at all.
+
+Some hints:
+1)  If you are attempting to re-use/re-purpose your CodedTool implementation,
+    consider adding an "args" block to your specific agents. This will pass
+    whatever dictionary you specify there as extra key/value pairs to your
+    CodedTool's invoke()/async_invoke() method's args parameter in addition
+    to those provided by any calling LLM.
+2)  If you need something more dynamic that is shared amongst the CodedTools
+    of your agent network to handle a single request, consider lazy instantiation
+    of the object in question, and share a reference to that object in the
+    sly_data dictionary. The lifetime of that object will last as long
+    as the request itself is in motion.
+3)  Try very very hard to *not* use global variables/singletons to bypass this limitation.
+    Your CodedTool implementation is working in a multi-threaded, asynchronous
+    environment. If your first instinct is to reach for a global variable,
+    you are highly likely to diminish the performance for all other requests
+    on any server running your agent with your CodedTool.
+"""
+            raise TypeError(message) from exception
+
+        return coded_tool
 
     async def attempt_invoke(self, coded_tool: CodedTool, arguments: Dict[str, Any], sly_data: Dict[str, Any]) \
             -> Any:
