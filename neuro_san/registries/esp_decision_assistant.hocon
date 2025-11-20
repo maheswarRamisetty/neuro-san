@@ -23,6 +23,11 @@
     "metadata": {
         "description": "Example of generic decision-making broken down into Context, Actions and Outcomes attributes.",
         "tags": ["example"],
+        "sample_queries": [
+            "Should I buy a new car or lease one?",
+            "What marketing strategy should I choose for my product launch?",
+            "Should I hire more developers or outsource the project?"
+        ]
     },
     "llm_config": {
         # Demonstration of the config for llm fallbacks.
