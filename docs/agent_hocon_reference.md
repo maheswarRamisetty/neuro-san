@@ -360,7 +360,7 @@ however it wants to.
 
 #### sample_queries
 
-A list of strings of sample queries that can be asked of the agent network.
+A list of sample query strings that can be asked of the agent network.
 These queries serve as examples to help users understand what kinds of questions or requests
 are appropriate for the agent network.
 
