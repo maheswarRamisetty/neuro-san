@@ -245,7 +245,7 @@ class ServerMainLoop:
 
         # Fast out if neither http service nor MCP service are requested:
         if not server_status.http_service.is_requested() and \
-              not server_status.mcp_service.is_requested():
+                not server_status.mcp_service.is_requested():
             print("HTTP server is not requested - exiting.")
             return
 

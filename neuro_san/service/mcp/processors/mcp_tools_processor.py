@@ -27,13 +27,12 @@ import contextlib
 import json
 import tornado
 
-from neuro_san.interfaces.concierge_session import ConciergeSession
+from neuro_san.internals.graph.registry.agent_network import AgentNetwork
 from neuro_san.internals.interfaces.agent_network_provider import AgentNetworkProvider
 from neuro_san.internals.network_providers.agent_network_storage import AgentNetworkStorage
 from neuro_san.service.http.interfaces.agent_authorizer import AgentAuthorizer
 from neuro_san.service.generic.async_agent_service import AsyncAgentService
 from neuro_san.service.generic.async_agent_service_provider import AsyncAgentServiceProvider
-from neuro_san.session.direct_concierge_session import DirectConciergeSession
 from neuro_san.service.mcp.util.mcp_errors_util import McpErrorsUtil
 from neuro_san.service.mcp.util.requests_util import RequestsUtil
 from neuro_san.service.http.logging.http_logger import HttpLogger
