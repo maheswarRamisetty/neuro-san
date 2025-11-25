@@ -27,12 +27,12 @@ import contextlib
 import json
 import tornado
 
-from neuro_san.interfaces.concierge_session import ConciergeSession
+from neuro_san.internals.graph.registry.agent_network import AgentNetwork
+from neuro_san.internals.interfaces.agent_network_provider import AgentNetworkProvider
 from neuro_san.internals.network_providers.agent_network_storage import AgentNetworkStorage
 from neuro_san.service.http.interfaces.agent_authorizer import AgentAuthorizer
 from neuro_san.service.generic.async_agent_service import AsyncAgentService
 from neuro_san.service.generic.async_agent_service_provider import AsyncAgentServiceProvider
-from neuro_san.session.direct_concierge_session import DirectConciergeSession
 from neuro_san.service.mcp.util.mcp_errors_util import McpErrorsUtil
 from neuro_san.service.mcp.util.requests_util import RequestsUtil
 from neuro_san.service.http.logging.http_logger import HttpLogger
@@ -61,14 +61,14 @@ class McpToolsProcessor:
         :return: json dictionary with tools list in MCP format
         """
         public_storage: AgentNetworkStorage = self.network_storage_dict.get("public")
-        data: Dict[str, Any] = {}
-        session: ConciergeSession = DirectConciergeSession(public_storage, metadata=metadata)
-        result_dict: Dict[str, Any] = session.list(data)
         tools_description: List[Dict[str, Any]] = []
-        for agent_dict in result_dict.get("agents", []):
-            agent_name: str = agent_dict["agent_name"]
-            tool_dict: Dict[str, Any] = await self._get_tool_description(agent_name, metadata)
-            tools_description.append(tool_dict)
+        for agent_name in public_storage.get_agent_names():
+            provider: AgentNetworkProvider = public_storage.get_agent_network_provider(agent_name)
+            if provider is not None:
+                agent_network: AgentNetwork = provider.get_agent_network()
+                if agent_network.is_mcp_tool():
+                    tool_dict: Dict[str, Any] = await self._get_tool_description(agent_name, metadata)
+                    tools_description.append(tool_dict)
         return {
             "jsonrpc": "2.0",
             "id": RequestsUtil.safe_request_id(request_id),
@@ -99,6 +99,10 @@ class McpToolsProcessor:
             # No such tool is found:
             return McpErrorsUtil.get_tool_error(request_id, f"Tool not found: {tool_name}")
         service: AsyncAgentService = service_provider.get_service()
+        if not service.is_mcp_tool():
+            # Service is not allowed to be called as MCP tool:
+            return McpErrorsUtil.get_tool_error(request_id, f"Service not available as MCP tool: {tool_name}")
+
         tool_timeout_seconds: float = service.get_request_timeout_seconds()
         if tool_timeout_seconds <= 0.0:
             # For asyncio.timeout(), None means no timeout:

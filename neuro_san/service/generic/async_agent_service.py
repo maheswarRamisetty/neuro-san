@@ -125,6 +125,12 @@ class AsyncAgentService:
         """
         return self.agent_network_provider.get_agent_network().get_request_timeout_seconds()
 
+    def is_mcp_tool(self) -> bool:
+        """
+        :return: True if the agent served by this service is an MCP tool
+        """
+        return self.agent_network_provider.get_agent_network().is_mcp_tool()
+
     async def function(self, request_dict: Dict[str, Any],
                        request_metadata: Dict[str, Any]) \
             -> Dict[str, Any]:

@@ -125,6 +125,12 @@ class AgentService:
         """
         return self.request_timeout_seconds
 
+    def is_mcp_tool(self) -> bool:
+        """
+        :return: True if the agent served by this service is an MCP tool
+        """
+        return self.agent_network_provider.get_agent_network().is_mcp_tool()
+
     def function(self, request_dict: Dict[str, Any],
                  request_metadata: Dict[str, Any],
                  context: Any) \

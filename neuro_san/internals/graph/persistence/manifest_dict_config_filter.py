@@ -30,6 +30,8 @@ class ManifestDictConfigFilter(ConfigFilter):
     any Easy boolean values to a specific dictionary.
     """
 
+    MCP_DEFAULT_MODE: bool = True
+
     def __init__(self, manifest_file: str):
         """
         Constructor
@@ -63,6 +65,7 @@ class ManifestDictConfigFilter(ConfigFilter):
             expanded_value: Dict[str, Any] = {
                 "serve": True,
                 "public": True,
+                "mcp": self.MCP_DEFAULT_MODE
             }
 
             # Traditional, easy entry in a manifest file.
@@ -71,6 +74,7 @@ class ManifestDictConfigFilter(ConfigFilter):
                     expanded_value = {
                         "serve": False,
                         "public": False,
+                        "mcp": self.MCP_DEFAULT_MODE
                     }
             elif isinstance(value, Dict):
                 expanded_value = value
@@ -79,6 +83,12 @@ class ManifestDictConfigFilter(ConfigFilter):
                                     "must be either a boolean or a dictionary. Skipping.",
                                     key, self.manifest_file)
                 continue
+
+            # MCP designated entries are considered public by default.
+            if "mcp" not in expanded_value:
+                expanded_value["mcp"] = False
+            if expanded_value["mcp"]:
+                expanded_value["public"] = True
 
             filtered[key] = expanded_value
 

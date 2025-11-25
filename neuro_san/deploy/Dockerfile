@@ -270,4 +270,13 @@ ENV AGENT_EXTERNAL_RESERVATIONS_STORAGE=""
 # to use for cross-pod reservations storage.
 ENV AGENT_RESERVATIONS_S3_BUCKET=""
 
+ENV AGENT_MCP_ENABLE="true"
+# When set, this parameter enables MCP service protocol for running neuro-san server.
+# Service endpoint is http://host:port/mcp
+# (neuro-san own http API is also enabled in this case)
+
+ENV AGENT_MCP_ONLY="false"
+# When set, this parameter will only enable MCP service protocol for running neuro-san server,
+# while disabling neuro-san own http API.
+ 
 ENTRYPOINT "${APP_ENTRYPOINT}"

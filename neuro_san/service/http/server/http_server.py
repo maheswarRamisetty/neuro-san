@@ -175,6 +175,9 @@ class HttpServer(AgentAuthorizer, AgentStateListener):
         """
         Construct tornado HTTP "application" to run.
         """
+        # Do we need to enable HTTP request handlers?
+        enable_http_handlers: bool = self.server_context.get_server_status().http_service.is_requested()
+
         request_initialize_data: Dict[str, Any] = self.build_request_data()
         live_request_initialize_data: Dict[str, Any] = {
             "forwarded_request_metadata": self.forwarded_request_metadata,
@@ -187,18 +190,21 @@ class HttpServer(AgentAuthorizer, AgentStateListener):
             "op": "ready"
         }
         handlers = []
+        # Health check handlers are enabled always
         handlers.append(("/", HealthCheckHandler, ready_request_initialize_data))
         handlers.append(("/healthz", HealthCheckHandler, ready_request_initialize_data))
         handlers.append(("/readyz", HealthCheckHandler, ready_request_initialize_data))
         handlers.append(("/livez", HealthCheckHandler, live_request_initialize_data))
-        handlers.append(("/api/v1/list", ConciergeHandler, request_initialize_data))
-        handlers.append(("/api/v1/docs", OpenApiPublishHandler, request_initialize_data))
 
-        # Register templated request paths for agent API methods:
-        # regexp format used here is that of Python Re standard library.
-        handlers.append((r"/api/v1/(.+)/function", FunctionHandler, request_initialize_data))
-        handlers.append((r"/api/v1/(.+)/connectivity", ConnectivityHandler, request_initialize_data))
-        handlers.append((r"/api/v1/(.+)/streaming_chat", StreamingChatHandler, request_initialize_data))
+        if enable_http_handlers:
+            handlers.append(("/api/v1/list", ConciergeHandler, request_initialize_data))
+            handlers.append(("/api/v1/docs", OpenApiPublishHandler, request_initialize_data))
+
+            # Register templated request paths for agent API methods:
+            # regexp format used here is that of Python Re standard library.
+            handlers.append((r"/api/v1/(.+)/function", FunctionHandler, request_initialize_data))
+            handlers.append((r"/api/v1/(.+)/connectivity", ConnectivityHandler, request_initialize_data))
+            handlers.append((r"/api/v1/(.+)/streaming_chat", StreamingChatHandler, request_initialize_data))
 
         # Register MCP "root" handler for all MCP requests
         # if MCP server is enabled:

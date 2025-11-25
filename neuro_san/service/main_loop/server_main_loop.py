@@ -143,8 +143,11 @@ class ServerMainLoop:
                                 help="Http server resources monitoring/logging interval in seconds "
                                      "0 means no logging")
         arg_parser.add_argument("--mcp_enable", type=str,
-                                default=os.environ.get("AGENT_MCP_ENABLE", "false"),
+                                default=os.environ.get("AGENT_MCP_ENABLE", "true"),
                                 help="'true' if MCP protocol service should be enabled")
+        arg_parser.add_argument("--mcp_only", type=str,
+                                default=os.environ.get("AGENT_MCP_ONLY", "false"),
+                                help="'true' if only MCP protocol service will be run (no HTTP service)")
         return arg_parser
 
     def parse_args(self):
@@ -191,6 +194,10 @@ class ServerMainLoop:
         # Do we to enable MCP service?
         if args.mcp_enable.lower() != "true":
             server_status.mcp_service.set_requested(False)
+        if args.mcp_only.lower() == "true":
+            server_status.mcp_service.set_requested(True)
+            # Disable HTTP service if MCP only is requested
+            server_status.http_service.set_requested(False)
 
         self.http_server_config.http_connections_backlog = args.http_connections_backlog
         self.http_server_config.http_idle_connection_timeout_seconds = args.http_idle_connections_timeout
@@ -236,8 +243,9 @@ class ServerMainLoop:
 
         server_status: ServerStatus = self.server_context.get_server_status()
 
-        # Fast out if no http service is requested:
-        if not server_status.http_service.is_requested():
+        # Fast out if neither http service nor MCP service are requested:
+        if not server_status.http_service.is_requested() and \
+                not server_status.mcp_service.is_requested():
             print("HTTP server is not requested - exiting.")
             return
 

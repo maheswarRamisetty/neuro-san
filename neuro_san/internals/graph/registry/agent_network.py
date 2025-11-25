@@ -41,6 +41,10 @@ class AgentNetwork(AgentNetworkInspector):
         self.name = name
         self.agent_spec_map: Dict[str, Dict[str, Any]] = {}
 
+        # True if this agent network is set to be served as an MCP tool;
+        # False otherwise.
+        self.is_mcp_network: bool = False
+
         self.first_agent: str = None
 
         agent_specs = self.config.get("tools")
@@ -53,6 +57,19 @@ class AgentNetwork(AgentNetworkInspector):
         :return: The config dictionary passed into the constructor
         """
         return self.config
+
+    def set_as_mcp_tool(self):
+        """
+        Marks this agent network as being served as an MCP tool.
+        """
+        self.is_mcp_network = True
+
+    def is_mcp_tool(self) -> bool:
+        """
+        :return: True if this agent network is set to be served as an MCP tool;
+                 False otherwise.
+        """
+        return self.is_mcp_network
 
     def register(self, agent_spec: Dict[str, Any]):
         """

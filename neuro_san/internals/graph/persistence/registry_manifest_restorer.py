@@ -148,6 +148,10 @@ class RegistryManifestRestorer(Restorer):
 
             network_name: str = self.agent_mapper.filepath_to_agent_network_name(agent_filepath)
 
+            # Check if this agent network has been declared as MCP tool:
+            if manifest_dict.get("mcp", False):
+                agent_network.set_as_mcp_tool()
+
             # Figure out where we want to put the network per the network's manifest dictionary
             storage: str = "public"
             if not manifest_dict.get("public"):
