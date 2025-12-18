@@ -48,7 +48,8 @@ pydantic>=2.9.2,<3.0
 # those guys work, but we do not want to make everyone install everything
 # and all the ensuing transient dependencies for the world.
 # For a list of other LLMs we support out of the box, see requirements-build.txt
-langchain-openai>=0.3.29,<1.1
+# NOTE: This version should be aligned with the langchain and langchain-core versions above.
+langchain-openai>=1.0.0,<1.1
 
 httpx>=0.28.1
 
