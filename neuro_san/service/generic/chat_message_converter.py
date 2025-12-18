@@ -33,7 +33,11 @@ class ChatMessageConverter(DictionaryConverter):
         :param obj: The object (chat response) to be converted into a dictionary
         :return: chat response dictionary in format expected by clients
         """
+        # Do "the safe" copy, moving over only json serializable values.
+        # Note that values of ChatMessageType are passed through,
+        # because they are handled by a separate post-processing step.
         response_dict = self.to_json_safe(obj)
+        # This is where ChatMessageType enum values are converted:
         self.convert(response_dict)
         return response_dict
 
