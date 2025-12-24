@@ -378,24 +378,29 @@ class McpToolsProcessor:
                         "format": "int32"
                     }
                 }
-            }
-        },
-        "properties": {
-            "sly_data": {
+            },
+            "ChatRequest": {
                 "type": "object",
-                "description": "This is an entirely optional map whose keys refer to data that is better left out of the LLM chat stream.  The keys themselves might appear in the chat stream, referring to the data, but the data itself does not. The intent is for the key references to be passed to tools, which then grab the values by programmatic means.",
-                "additionalProperties": True
-            },
-            "user_message": {
-                "$ref": "#/$defs/ChatMessage"
-            },
-            "chat_context": {
-                "$ref": "#/$defs/ChatContext"
-            },
-            "chat_filter": {
-                "$ref": "#/$defs/ChatFilter"
+                "properties": {
+                    "sly_data": {
+                        "type": "object",
+                        "description": "This is an entirely optional map whose keys refer to data that is better left out of the LLM chat stream.  The keys themselves might appear in the chat stream, referring to the data, but the data itself does not. The intent is for the key references to be passed to tools, which then grab the values by programmatic means.",
+                        "additionalProperties": True
+                    },
+                    "user_message": {
+                        "$ref": "#/$defs/ChatMessage"
+                    },
+                    "chat_context": {
+                        "$ref": "#/$defs/ChatContext"
+                    },
+                    "chat_filter": {
+                        "$ref": "#/$defs/ChatFilter"
+                    }
+                },
+                "description": "Request structure for Chat gRPC method"
             }
         },
+        "$ref": "#/$defs/ChatRequest",
         "additionalProperties": False,
         "required": ["user_message"]
     }

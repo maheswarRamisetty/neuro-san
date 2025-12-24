@@ -32,6 +32,7 @@ from neuro_san.service.utils.mcp_server_context import McpServerContext
 from neuro_san.service.mcp.interfaces.client_session_policy import ClientSessionPolicy
 from neuro_san.service.mcp.interfaces.client_session_policy import MCP_SESSION_ID, MCP_PROTOCOL_VERSION
 from neuro_san.service.mcp.util.mcp_errors_util import McpErrorsUtil
+from neuro_san.service.mcp.validation.tool_request_validator import ToolRequestValidator
 from neuro_san.service.mcp.mcp_errors import McpError
 from neuro_san.service.mcp.processors.mcp_tools_processor import McpToolsProcessor
 from neuro_san.service.mcp.processors.mcp_resources_processor import McpResourcesProcessor
@@ -173,6 +174,18 @@ class McpRootHandler(BaseRequestHandler):
                 call_params: Dict[str, Any] = data.get("params", {})
                 tool_name: str = call_params.get("name")
                 call_args: Dict[str, Any] = call_params.get("arguments", {})
+                # Validate tool arguments:
+                tool_validator: DictionaryValidator = ToolRequestValidator(self.openapi_service_spec)
+                validation_errors = tool_validator.validate(call_args)
+                if validation_errors:
+                    extra_error: str = "; ".join(validation_errors)
+                    error_msg: Dict[str, Any] = \
+                        McpErrorsUtil.get_protocol_error(request_id, McpError.InvalidRequest, extra_error)
+                    self.set_status(HTTPStatus.BAD_REQUEST)
+                    self.write(error_msg)
+                    self.logger.error(self.get_metadata(), f"Error: Invalid tool call request: {extra_error}")
+                    self.do_finish()
+                    return
 
                 print(f"########################### call_args: {call_args}")
 

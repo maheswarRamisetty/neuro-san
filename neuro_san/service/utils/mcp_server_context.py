@@ -42,6 +42,7 @@ class McpServerContext:
         self.protocol_schema = None
         self.session_policy = None
         self.request_validator = None
+        self.tool_call_validator = None
         self.enabled: bool = False
 
     def set_enabled(self, enabled: bool) -> None:
@@ -61,7 +62,7 @@ class McpServerContext:
             except Exception as exc:  # pylint: disable=broad-exception-caught
                 raise RuntimeError(f"Cannot load MCP protocol schema from "
                                    f"'{self.protocol_schema_filepath}': {str(exc)}") from exc
-            # Create new session manager:
+            # Create a new session manager:
             self.session_policy = McpNoSessionsPolicy()
         self.enabled = enabled
 
@@ -82,7 +83,6 @@ class McpServerContext:
     def get_request_validator(self) -> DictionaryValidator:
         """
         Get the request validator for this context.
-
         :return: The request validator
         """
         return self.request_validator
