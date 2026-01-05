@@ -34,8 +34,14 @@ class ToolRequestValidator(DictionaryValidator):
     Class implementing MCP tool call request validation against tool call schema.
     """
     def __init__(self, service_schema: Dict[str, Any]):
+        """
+        Initialize the tool request validator.
+        :param service_schema: The OpenAPI schema dictionary for the neuro-san service API.
+        """
         self.tool_request_method = "ChatRequest"
         self.required_property = "user_message"
+        # Generate the validation schema for tool call requests
+        # from the overall neuro-san service schema:
         self.validation_schema = self._extract_sub_schema(
             service_schema,
             self.tool_request_method,
