@@ -47,8 +47,6 @@ class ToolRequestValidator(DictionaryValidator):
             self.tool_request_method,
             self.required_property)
 
-        print(f"Tool request validation schema initialized: {self.request_schema}")
-
     def validate(self, candidate: Dict[str, Any]) -> List[str]:
         """
         Validate the dictionary data of an incoming tool call request against MCP protocol schema.

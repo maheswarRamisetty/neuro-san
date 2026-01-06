@@ -190,8 +190,8 @@ class McpRootHandler(BaseRequestHandler):
                     self.logger.error(self.get_metadata(), f"Error: Invalid tool call request: {extra_error}")
                     return
 
-                prompt: str = call_args.get("user_message", {})
-                chat_context: str = call_args.get("chat_context", None)
+                prompt: Dict[str, Any] = call_args.get("user_message", {})
+                chat_context: Dict[str, Any] = call_args.get("chat_context", None)
                 chat_filter: Dict[str, Any] = call_args.get("chat_filter", None)
                 sly_data: Dict[str, Any] = call_args.get("sly_data", None)
                 result_dict: Dict[str, Any] =\
