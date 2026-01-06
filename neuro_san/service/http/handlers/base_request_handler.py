@@ -56,7 +56,7 @@ class BaseRequestHandler(RequestHandler):
         :param kwargs: dictionary of named parameters, including:
             "agent_policy" - abstract policy for agent requests;
             "forwarded_request_metadata" - list of request metadata keys to forward;
-            "openapi_service_spec_path" - file path to OpenAPI service spec;
+            "openapi_service_spec" - OpenAPI service spec dictionary;
             "server_context" - ServerContext instance for this server.
         """
         # Set up local members from kwargs dictionary passed in:
@@ -65,7 +65,7 @@ class BaseRequestHandler(RequestHandler):
         # type: List[str]
         self.forwarded_request_metadata: List[str] = kwargs.pop("forwarded_request_metadata", [])
         # type: str
-        self.openapi_service_spec_path: str = kwargs.pop("openapi_service_spec_path", None)
+        self.openapi_service_spec: Dict[str, Any] = kwargs.pop("openapi_service_spec", None)
         # type: ServerContext
         self.server_context: ServerContext = kwargs.pop("server_context", None)
 

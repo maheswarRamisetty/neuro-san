@@ -32,6 +32,7 @@ from neuro_san.service.utils.mcp_server_context import McpServerContext
 from neuro_san.service.mcp.interfaces.client_session_policy import ClientSessionPolicy
 from neuro_san.service.mcp.interfaces.client_session_policy import MCP_SESSION_ID, MCP_PROTOCOL_VERSION
 from neuro_san.service.mcp.util.mcp_errors_util import McpErrorsUtil
+from neuro_san.service.mcp.validation.tool_request_validator import ToolRequestValidator
 from neuro_san.service.mcp.mcp_errors import McpError
 from neuro_san.service.mcp.processors.mcp_tools_processor import McpToolsProcessor
 from neuro_san.service.mcp.processors.mcp_resources_processor import McpResourcesProcessor
@@ -63,6 +64,9 @@ class McpRootHandler(BaseRequestHandler):
         #     AgentNetworkStorage instance which keeps all the AgentNetwork instances
         #     of a particular grouping.
         self.network_storage_dict: Dict[str, AgentNetworkStorage] = self.server_context.get_network_storage_dict()
+
+        # For tool requests, we need to validate tool call arguments:
+        self.tool_request_validator: ToolRequestValidator = ToolRequestValidator(self.openapi_service_spec)
 
         self.set_header("Access-Control-Allow-Origin", "*")
         self.set_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
@@ -160,7 +164,8 @@ class McpRootHandler(BaseRequestHandler):
                     McpToolsProcessor(
                         self.logger,
                         self.network_storage_dict,
-                        self.agent_policy)
+                        self.agent_policy,
+                        self.tool_request_validator)
                 result_dict: Dict[str, Any] = await tools_processor.list_tools(request_id, metadata)
                 self.set_status(HTTPStatus.OK)
                 self.write(result_dict)
@@ -169,11 +174,34 @@ class McpRootHandler(BaseRequestHandler):
                     McpToolsProcessor(
                         self.logger,
                         self.network_storage_dict,
-                        self.agent_policy)
+                        self.agent_policy,
+                        self.tool_request_validator)
                 call_params: Dict[str, Any] = data.get("params", {})
                 tool_name: str = call_params.get("name")
-                prompt: str = call_params.get("arguments", {}).get("input", "")
-                result_dict: Dict[str, Any] = await tools_processor.call_tool(request_id, metadata, tool_name, prompt)
+                call_args: Dict[str, Any] = call_params.get("arguments", {})
+                # Validate tool arguments:
+                validation_errors = self.tool_request_validator.validate(call_args)
+                if validation_errors:
+                    extra_error: str = "; ".join(validation_errors)
+                    error_msg: Dict[str, Any] = \
+                        McpErrorsUtil.get_protocol_error(request_id, McpError.InvalidRequest, extra_error)
+                    self.set_status(HTTPStatus.BAD_REQUEST)
+                    self.write(error_msg)
+                    self.logger.error(self.get_metadata(), f"Error: Invalid tool call request: {extra_error}")
+                    return
+
+                prompt: Dict[str, Any] = call_args.get("user_message", {})
+                chat_context: Dict[str, Any] = call_args.get("chat_context", None)
+                chat_filter: Dict[str, Any] = call_args.get("chat_filter", None)
+                sly_data: Dict[str, Any] = call_args.get("sly_data", None)
+                result_dict: Dict[str, Any] =\
+                    await tools_processor.call_tool(
+                        request_id, metadata,
+                        tool_name,
+                        prompt,
+                        chat_context,
+                        chat_filter,
+                        sly_data)
                 self.set_status(HTTPStatus.OK)
                 self.write(result_dict)
             elif method == "resources/list":

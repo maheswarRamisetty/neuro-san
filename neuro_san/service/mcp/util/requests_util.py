@@ -32,13 +32,13 @@ class RequestsUtil:
         :param request_id: MCP request id (as received from user);
         :return: HTML-escaped request id string
         """
+        # Always return a string and always HTML-escape it to avoid XSS
+        # vulnerabilities in any HTML-based consumers of the MCP response.
         if isinstance(request_id, str):
             return html.escape(request_id)
-        # Do not escape integers, just return as-is
-        # otherwise, MCP client gets confused and could reject this response
-        if isinstance(request_id, int):
-            return request_id
-        return "invalid"
+        # For non-string IDs (including integers), convert to string first,
+        # then escape to ensure the returned value is HTML-safe.
+        return html.escape(str(request_id))
 
     @staticmethod
     def safe_message(msg: str) -> str:
