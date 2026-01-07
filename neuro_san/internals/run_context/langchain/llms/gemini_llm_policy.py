@@ -58,6 +58,7 @@ class GeminiLlmPolicy(LlmPolicy):
             top_k=config.get("top_k"),
             top_p=config.get("top_p"),
             thinking_level=config.get("thinking_level"),
+            thinking_budget=config.get("thinking_budget"),
 
             # If omitted, this defaults to the global verbose value,
             # accessible via langchain_core.globals.get_verbose():
