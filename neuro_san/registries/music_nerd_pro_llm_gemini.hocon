@@ -29,7 +29,18 @@
         ]
     },
     "llm_config": {
-        "model_name": "gemini-2.5-flash",
+        "model_name": "gemini-3-flash",
+
+        # For Gemini 3.0+ models, it is recommended to set the temperature parameter at 1.0 as setting it to 0.7 can cause infinite loops,
+        # degraded reasoning performance, and failure on complex tasks.
+        # See https://ai.google.dev/gemini-api/docs/gemini-3#temperature
+        "temperature": 1.0,
+
+        # Gemini 3 series models use dynamic thinking by default to reason through prompts.
+        # Set "thinking_level" to "minimal" to match the “no thinking” setting for most queries.
+        # Note that "minimal" is only valid for Gemini 3.0 Flash but not Pro models.
+        # See https://ai.google.dev/gemini-api/docs/gemini-3#thinking_level
+        "thinking_level": "minimal"
     },
     "tools": [
         # This first agent definition is regarded as the "Front Man", which

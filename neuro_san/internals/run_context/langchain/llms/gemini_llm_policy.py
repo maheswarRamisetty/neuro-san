@@ -57,6 +57,8 @@ class GeminiLlmPolicy(LlmPolicy):
             timeout=config.get("timeout"),
             top_k=config.get("top_k"),
             top_p=config.get("top_p"),
+            thinking_level=config.get("thinking_level"),
+            thinking_budget=config.get("thinking_budget"),
 
             # If omitted, this defaults to the global verbose value,
             # accessible via langchain_core.globals.get_verbose():
@@ -72,10 +74,6 @@ class GeminiLlmPolicy(LlmPolicy):
             # To prevent this, we explicitly set verbose=False here (which matches the default
             # global verbose value) so that the warning is never triggered.
             verbose=False,
-
-            # We always want an async client, but grpc_asyncio is the only option,
-            # as there is no async rest client at the moment.
-            transport="grpc_asyncio",
         )
         return llm
 
@@ -87,13 +85,42 @@ class GeminiLlmPolicy(LlmPolicy):
             return
 
         # Do the necessary reach-ins to successfully shut down the web client
-        # This is really a v1betaGenerativeServiceAsyncClient, aka
+        # This used to be a v1betaGenerativeServiceAsyncClient, aka
         # google.ai.generativelanguage_v1beta.GenerativeServiceAsyncClient.
-        # but we don't really want to do the Resolver thing here just for type hints.
-        async_client_running: Any = self.llm.async_client_running
-        if async_client_running is not None:
+        # however, langchain-google-genai==4.0.0 migrated to google-genai,
+        # and now When ChatGoogleGenerativeAI is instantiated, it creates google.genai.Client
+        # via the validate_environment method
+        # (https://github.com/langchain-ai/langchain-google/blob/main/libs/genai/langchain_google_genai/
+        # chat_models.py#L2306).
+        #
+        # The google.genai.Client internally creates both sync and async client instances,
+        # so both Client and AsyncClient (accessible via client.aio) are instantiated
+        # at this time.
+        #
+        # The async_client @property
+        # (https://github.com/langchain-ai/langchain-google/blob/main/libs/genai/langchain_google_genai/
+        # chat_models.py#L2476)
+        # simply returns self.client.aio - it doesn't create a new client, just provides
+        # convenient access to the already-instantiated AsyncClient.
+        #
+        # Therefore, both clients exist immediately upon ChatGoogleGenerativeAI instantiation
+        # and both should be closed during cleanup.
+        #
+        # References:
+        # https://github.com/langchain-ai/langchain-google/releases/tag/libs%2Fgenai%2Fv4.0.0
+        # https://github.com/googleapis/python-genai/blob/main/google/genai/client.py
+        # https://reference.langchain.com/python/integrations/langchain_google_genai/ChatGoogleGenerativeAI/
+        # #langchain_google_genai.ChatGoogleGenerativeAI.async_client
+
+        # Close sync client
+        if self.llm.client is not None:
             with suppress(Exception):
-                await async_client_running.transport.close()
+                self.llm.client.close()
+
+        # Close async client
+        if self.llm.async_client is not None:
+            with suppress(Exception):
+                await self.llm.async_client.aclose()
 
         # Let's not do this again, shall we?
         self.llm = None
