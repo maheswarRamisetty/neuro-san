@@ -115,7 +115,7 @@ class GeminiLlmPolicy(LlmPolicy):
             with suppress(Exception):
                 self.llm.client.close()
 
-        # Close async client  
+        # Close async client
         if self.llm.async_client is not None:
             with suppress(Exception):
                 await self.llm.async_client.aclose()
