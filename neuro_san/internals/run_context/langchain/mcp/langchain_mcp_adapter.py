@@ -83,7 +83,7 @@ class LangChainMcpAdapter:
             "transport": "streamable_http",
         }
         # Try to look up authentication details first from the sly data then from the MCP servers info.
-        headers_dict: Dict[str, Any] = headers or self._mcp_servers_info.get(server_url, {}).get("headers")
+        headers_dict: Dict[str, Any] = headers or self._mcp_servers_info.get(server_url, {}).get("http_headers")
         if headers_dict:
             if isinstance(headers_dict, dict):
                 # Use a copy to avoid modifying the original headers dictionary.

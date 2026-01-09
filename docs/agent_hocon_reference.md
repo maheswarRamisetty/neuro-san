@@ -574,7 +574,7 @@ server. Users may specify different authorization credentials for different MCP 
     ```json
     {
         "mcp_server_url_1": {
-            "headers": {
+            "http_headers": {
                 "Authorization": "Bearer <token>",
             }, 
             "tools": ["tool_1", "tool_2"]
@@ -584,7 +584,8 @@ server. Users may specify different authorization credentials for different MCP 
 
     - Server URLs must match those in the agent network HOCON file
 
-    - If headers exist in both `sly_data` and the configuration file for the same server, `sly_data` takes precedence
+    - If the headers exist in both `sly_data` and the configuration file for the same server,
+    `sly_data` takes precedence
 
     - Tool filtering from the configuration file is used only if no tool filtering exists in the agent network HOCON
 

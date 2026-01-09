@@ -159,7 +159,7 @@ class TestLangChainMcpAdapter:
         mock_restorer = mock_restorer_class.return_value
         mock_restorer.restore.return_value = {
             server_url: {
-                "headers": {"Authorization": "Bearer config_token"}
+                "http_headers": {"Authorization": "Bearer config_token"}
             }
         }
 
@@ -182,7 +182,7 @@ class TestLangChainMcpAdapter:
         server_url = "https://mcp.example.com/mcp"
         LangChainMcpAdapter._mcp_servers_info = {
             server_url: {
-                "headers": "invalid_string_not_dict"
+                "http_headers": "invalid_string_not_dict"
             }
         }
 
