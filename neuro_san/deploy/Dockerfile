@@ -270,6 +270,10 @@ ENV AGENT_EXTERNAL_RESERVATIONS_STORAGE=""
 # to use for cross-pod reservations storage.
 ENV AGENT_RESERVATIONS_S3_BUCKET=""
 
+ENV MCP_SERVERS_INFO_FILE=""
+# A hocon file with MCP servers information to be used by LangChainMcpAdapter
+# for connecting to external MCP servers with authentication and tool filtering.
+
 ENV AGENT_MCP_ENABLE="true"
 # When set, this parameter enables MCP service protocol for running neuro-san server.
 # Service endpoint is http://host:port/mcp
