@@ -528,7 +528,8 @@ MCP servers can be configured in two formats:
     ```json
     "tools": ["https://example.com/mcp"]
     ```
-    > Tool filtering is not available with string reference format unless using environment variable
+
+    >Tool filtering is not available with string reference format unless using environment variable
     `MCP_SERVERS_INFO_FILE` (see Authentication section below).
 
 - dictionary reference
@@ -541,7 +542,8 @@ MCP servers can be configured in two formats:
         }
     ]
     ```
-    > `tools` key filters which specific tools from the MCP server are made available.
+
+    >`tools` key filters which specific tools from the MCP server are made available.
     If omitted, all tools on the server will be accessible.
 
 ##### Authentication
