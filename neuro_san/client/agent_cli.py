@@ -70,6 +70,9 @@ class AgentCli:
         """
         self.parse_args()
 
+        # Determine if we are using an MCP session
+        self.is_mcp_session = self.args.connection == "mcp"
+
         # See if we are doing a list operation
         if self.args.list or self.args.tags or self.args.tag:
             self.list()
@@ -194,7 +197,9 @@ Some suggestions:
         input_processor = StreamingInputProcessor(self.DEFAULT_INPUT,
                                                   self.args.thinking_file,
                                                   self.session,
-                                                  self.thinking_dir)
+                                                  self.thinking_dir,
+                                                  is_mcp_session=self.is_mcp_session,
+                                                  log_responses=self.is_mcp_session)
 
         while not self.is_done(state):
 

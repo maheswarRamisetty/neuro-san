@@ -33,6 +33,7 @@ from neuro_san.session.abstract_http_service_agent_session import AbstractHttpSe
 # https://modelcontextprotocol.io/specification/2025-06-18
 MCP_VERSION: str = "2025-06-18"
 
+
 class McpServiceAgentSession(AbstractHttpServiceAgentSession, AgentSession):
     """
     Implementation of AgentSession that talks to an MCP protocol service.
@@ -40,7 +41,7 @@ class McpServiceAgentSession(AbstractHttpServiceAgentSession, AgentSession):
     """
     MCP_PROTOCOL_VERSION: str = "MCP-Protocol-Version"
 
-    # pylint: disable=too-many-arguments,too-many-positional-arguments
+    # pylint: disable=too-many-arguments,too-many-positional-arguments, too-many-locals
     def __init__(self, host: str = None,
                  port: str = None,
                  timeout_in_seconds: int = 30,
@@ -77,9 +78,9 @@ class McpServiceAgentSession(AbstractHttpServiceAgentSession, AgentSession):
                          streaming_timeout_in_seconds=streaming_timeout_in_seconds, agent_name=agent_name)
         # Do initial handshake and protocol negotiation
         handshake_dict: Dict[str, Any] = {
-            "jsonrpc":"2.0",
-            "id":1,
-            "method":"initialize",
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
             "params": {
                 "protocolVersion": MCP_VERSION,
                 "capabilities": {
@@ -136,9 +137,9 @@ class McpServiceAgentSession(AbstractHttpServiceAgentSession, AgentSession):
         """
         # Get the list of tools available from the service
         request_dict: Dict[str, Any] = {
-            "jsonrpc":"2.0",
-            "id":1,
-            "method":"tools/list",
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/list",
             "params": {
             }
         }
@@ -161,8 +162,9 @@ class McpServiceAgentSession(AbstractHttpServiceAgentSession, AgentSession):
                 tool_description: str = tool.get("description", None)
                 if tool_description is not None:
                     return {
-                        "function": { "description": tool_description }
+                        "function": {"description": tool_description}
                     }
+
         return None
 
     def connectivity(self, request_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -192,8 +194,6 @@ class McpServiceAgentSession(AbstractHttpServiceAgentSession, AgentSession):
         req_str: str = json.dumps(request_dict, indent=4)
         print(f"Request string: {req_str}")
 
-        request_dict["user_message"]["type"] = "HUMAN"
-
         # Pack the chat request dictionary into an MCP method call format:
         mcp_payload = {
             "jsonrpc": "2.0",
@@ -210,7 +210,6 @@ class McpServiceAgentSession(AbstractHttpServiceAgentSession, AgentSession):
         headers[self.MCP_PROTOCOL_VERSION] = self.protocol_version
 
         path: str = self.get_request_path("streaming_chat")
-        result: Dict[str, Any] = None
         try:
             with requests.post(path, json=mcp_payload, headers=headers,
                                timeout=self.streaming_timeout_in_seconds) as response:
@@ -218,9 +217,6 @@ class McpServiceAgentSession(AbstractHttpServiceAgentSession, AgentSession):
                 for line in response.iter_lines(decode_unicode=True):
                     if line.strip():  # Skip empty lines
                         result_dict = json.loads(line)
-
-                        print(f"MCP >>>>>>>>>>>>>>>>> Received chunk: {result_dict}")
-
                         yield result_dict
         except Exception as exc:  # pylint: disable=broad-exception-caught
             raise ValueError(self.help_message(path)) from exc

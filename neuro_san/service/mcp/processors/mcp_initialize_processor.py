@@ -24,7 +24,6 @@ from typing import Tuple
 from neuro_san.service.http.logging.http_logger import HttpLogger
 from neuro_san.service.utils.mcp_server_context import McpServerContext
 from neuro_san.service.mcp.interfaces.client_session import ClientSession
-from neuro_san.service.mcp.util.requests_util import RequestsUtil
 from neuro_san.service.mcp.util.mcp_request_util import McpRequestUtil
 
 

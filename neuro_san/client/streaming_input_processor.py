@@ -19,8 +19,10 @@ from typing import Any
 from typing import Dict
 from typing import Generator
 from typing import Optional
+from typing import Sequence
 
 from copy import copy
+import json
 
 from neuro_san.client.thinking_file_message_processor import ThinkingFileMessageProcessor
 from neuro_san.interfaces.agent_session import AgentSession
@@ -35,11 +37,15 @@ class StreamingInputProcessor:
     Processes AgentCli input by using the neuro-san streaming API.
     """
 
+    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-positional-arguments
     def __init__(self,
                  default_input: str = "",
                  thinking_file: str = None,
                  session: AgentSession = None,
-                 thinking_dir: str = None):
+                 thinking_dir: str = None,
+                 is_mcp_session: bool = False,
+                 log_responses: bool = False):
         """
         Constructor
         """
@@ -47,6 +53,8 @@ class StreamingInputProcessor:
         self.default_input: str = default_input
         self.session: AgentSession = session
         self.processor = BasicMessageProcessor()
+        self.is_mcp_session: bool = is_mcp_session
+        self.log_responses: bool = log_responses
         if thinking_dir is not None and thinking_file is not None:
             self.processor.add_processor(ThinkingFileMessageProcessor(thinking_file, thinking_dir))
 
@@ -90,7 +98,14 @@ class StreamingInputProcessor:
         chat_responses: Generator[Dict[str, Any], None, None] = self.session.streaming_chat(chat_request)
         for chat_response in chat_responses:
 
-            response: Dict[str, Any] = chat_response.get("response", empty)
+            if self.log_responses:
+                print(f"DEBUG: Raw chat response: {json.dumps(chat_response, indent=4)}")
+
+            response: Dict[str, Any] = None
+            if self.is_mcp_session:
+                response = self.unpack_mcp_chat_response(chat_response)
+            else:
+                response = self.unpack_native_chat_response(chat_response)
 
             self.processor.process_message(response)
 
@@ -138,7 +153,7 @@ class StreamingInputProcessor:
         """
         chat_request = {
             "user_message": {
-                "type": ChatMessageType.HUMAN,
+                "type": ChatMessageType.HUMAN.name,
                 "text": user_input
             }
         }
@@ -154,6 +169,38 @@ class StreamingInputProcessor:
             chat_request["chat_filter"] = chat_filter
 
         return chat_request
+
+    def unpack_native_chat_response(self, chat_response: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Unpacks a native neuro-san chat response for further processing
+        :param chat_response: The chat response dictionary
+        :return: A dictionary of unpacked response components
+        """
+        empty: Dict[str, Any] = {}
+        response: Dict[str, Any] = chat_response.get("response", empty)
+        return response
+
+    def unpack_mcp_chat_response(self, chat_response: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Unpacks an MCP chat response for further processing
+        :param chat_response: The chat response dictionary
+        :return: A dictionary of unpacked response components
+        """
+        empty: Dict[str, Any] = {}
+        result: Dict[str, Any] = chat_response.get("result", None)
+        if result is None:
+            return empty
+        has_error: bool = result.get("isError", True)
+        if has_error:
+            return empty
+        content_seq: Sequence[Dict[str, Any]] = result.get("content", [])
+        if len(content_seq) == 0:
+            return empty
+        response: Dict[str, Any] = content_seq[0]
+        return {
+            "type": ChatMessageType.AGENT_FRAMEWORK.name,
+            "text": response.get("text", "")
+        }
 
     def reset(self):
         """
