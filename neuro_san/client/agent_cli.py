@@ -61,6 +61,8 @@ class AgentCli:
 
         self.session: AgentSession = None
         self.thinking_dir: str = None
+        # Indicates if we are talking to MCP service
+        self.is_mcp_session: bool = False
 
     def main(self):
         """

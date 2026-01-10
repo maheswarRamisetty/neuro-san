@@ -107,14 +107,12 @@ class McpServiceAgentSession(AbstractHttpServiceAgentSession, AgentSession):
         except Exception as exc:  # pylint: disable=broad-exception-caught
             raise ValueError(self.help_message(path)) from exc
 
-        print(f"Handshake response: {response_dict}")
-
         # Extract the protocol version from the handshake response
         self.protocol_version: str = response_dict.get("result", {}).get("protocolVersion", None)
 
         # Confirm the protocol version is supported by this client
         if self.protocol_version not in [MCP_VERSION]:
-            raise ValueError(f"Unsupported protocol version: {self.protocol_version}")
+            raise ValueError(f"Unsupported MCP protocol version: {self.protocol_version}")
 
         # Acknowledge the successful handshake
         ack_dict: Dict[str, Any] = {
