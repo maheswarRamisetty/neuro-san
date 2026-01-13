@@ -165,7 +165,7 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
 
         return assert_capture
 
-    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals, too-many-arguments, too-many-positional-arguments
     def one_iteration(self, test_case: Dict[str, Any], asserts: AssertForwarder,
                       timeouts: List[Timeout], fixture_hocon_name: str, iteration_index: int):
         """
