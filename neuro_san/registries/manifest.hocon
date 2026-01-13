@@ -78,6 +78,8 @@
     "mcp_deepwiki_str.hocon": true,
     # This is an example of an agent network that uses MCP tool to interact with GitHub, which requires authentication.
     "mcp_github.hocon": true,
+    # This is an example of an agent network that uses neuro-san as an MCP server where each agent is a tool.
+    "mcp_neurosan.hocon": true,
 
     # Agents having to do with test infrastructure
     "gist.hocon": true,
