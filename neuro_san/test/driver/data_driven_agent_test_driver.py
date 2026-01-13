@@ -102,16 +102,14 @@ class DataDrivenAgentTestDriver:
 
         # Extract the second-to-last part of the path,the parent folder name.
         fixture_hocon_name = os.path.basename(os.path.dirname(hocon_file))
-        for index in range(num_iterations):
-
-            _ = index
+        for iteration_index in range(num_iterations):
 
             # Capture the asserts for this iteration and add it to the list for later
             assert_capture = AssertCapture(self.asserts_basis)
             iteration_asserts.append(assert_capture)
 
             # Perform a single iteration of the test.
-            self.one_iteration(test_case, assert_capture, timeouts, fixture_hocon_name)
+            self.one_iteration(test_case, assert_capture, timeouts, fixture_hocon_name, iteration_index)
 
             # Update our counter if this iteration is successful
             asserts: List[AssertionError] = assert_capture.get_asserts()
@@ -142,13 +140,15 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
 
     # pylint: disable=too-many-locals
     def one_iteration(self, test_case: Dict[str, Any], asserts: AssertForwarder,
-                      timeouts: List[Timeout], fixture_hocon_name):
+                      timeouts: List[Timeout], fixture_hocon_name: str, iteration_index: int):
         """
         Perform a single iteration on the test case.
 
         :param test_case: The dictionary describing the data-driven test case
         :param asserts: The AssertForwarder to send asserts to.
         :param timeouts: A list of timeout objects to check
+        :param fixture_hocon_name: A string containing the name of the fixture hocon file
+        :param iteration_index: The index of this test iteration for the success_ratio
         """
 
         # Get the agent to use
@@ -196,7 +196,7 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
                     session.reset()
 
                 chat_context = self.interact(agent, session, interaction, chat_context, asserts,
-                                             timeouts, fixture_hocon_name)
+                                             timeouts, fixture_hocon_name, iteration_index)
 
     def parse_hocon_test_case(self, hocon_file: str) -> Dict[str, Any]:
         """
@@ -214,7 +214,7 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
     # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
     def interact(self, agent: str, session: AgentSession, interaction: Dict[str, Any],
                  chat_context: Dict[str, Any], asserts: AssertForwarder,
-                 timeouts: List[Timeout], fixture_hocon_name) -> Dict[str, Any]:
+                 timeouts: List[Timeout], fixture_hocon_name: str, iteration_index: int) -> Dict[str, Any]:
         """
         Interact with an agent and evaluate its output
 
@@ -223,6 +223,8 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
         :param chat_context: The chat context to use with the interaction (if any)
         :param asserts: The AssertForwarder to send asserts to.
         :param timeouts: A list of timeout objects to check
+        :param fixture_hocon_name: A string containing the name of the fixture hocon file
+        :param iteration_index: The index of this test iteration for the success_ratio
         """
         _ = agent       # For now
         empty: Dict[str, Any] = {}
@@ -233,10 +235,11 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
         # Prepare the processor
         now = datetime.now()
         datestr: str = now.strftime("%Y-%m-%d-%H_%M_%S")
-        thinking_file: str = f"/tmp/agent_test/{datestr}_agent.txt"
+        basis_dir: str = os.environ.get("AGENT_TEST_THINKING_BASIS", "/tmp/agent_test")
+        thinking_file: str = f"{basis_dir}/{datestr}_agent.txt"
         # Added fixture_hocon_name to thinking_dir
         # for better uniqueness and traceability across different test fixtures.
-        thinking_dir: str = f"/tmp/agent_test/{datestr}_{fixture_hocon_name}_agent"
+        thinking_dir: str = f"{basis_dir}/{datestr}_{fixture_hocon_name}_{iteration_index}"
 
         # Remove any contents that might be there already.
         # Writing over existing dir will just confuse output.
