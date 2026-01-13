@@ -38,8 +38,6 @@ class StreamingInputProcessor:
     Processes AgentCli input by using the neuro-san streaming API.
     """
 
-    # pylint: disable=too-many-arguments
-    # pylint: disable=too-many-positional-arguments
     def __init__(self,
                  default_input: str = "",
                  thinking_file: str = None,

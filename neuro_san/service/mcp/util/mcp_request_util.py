@@ -23,16 +23,13 @@ from typing import Union
 
 import html
 
+from neuro_san.session.mcp_service_agent_session import MCP_VERSION
+
 
 class McpRequestUtil:
     """
     Utility class for generating MCP protocol requests and responses.
     """
-
-    # MCP protocol version supported by this service
-    # Protocol specification is available at:
-    # https://modelcontextprotocol.io/specification/2025-06-18
-    MCP_VERSION: str = "2025-06-18"
 
     @classmethod
     def get_mcp_version(cls) -> str:
@@ -40,7 +37,7 @@ class McpRequestUtil:
         Get the MCP protocol version supported by this service.
         :return: MCP protocol version string.
         """
-        return cls.MCP_VERSION
+        return MCP_VERSION
 
     @classmethod
     def get_handshake_response(cls, request_id) -> Dict[str, Any]:
@@ -53,7 +50,7 @@ class McpRequestUtil:
             "jsonrpc": "2.0",
             "id": McpRequestUtil.safe_request_id(request_id),
             "result": {
-                "protocolVersion": cls.MCP_VERSION,
+                "protocolVersion": MCP_VERSION,
                 "capabilities": {
                     "logging": {},
                     "prompts": {},

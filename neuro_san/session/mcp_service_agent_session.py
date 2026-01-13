@@ -27,10 +27,11 @@ from leaf_common.time.timeout import Timeout
 
 from neuro_san.interfaces.agent_session import AgentSession
 from neuro_san.session.abstract_http_service_agent_session import AbstractHttpServiceAgentSession
-from neuro_san.service.mcp.util.mcp_request_util import McpRequestUtil
 
-# MCP protocol version required by this MCP session
-MCP_VERSION: str = McpRequestUtil.get_mcp_version()
+# MCP protocol version supported by this MCP session
+# Protocol specification is available at:
+# https://modelcontextprotocol.io/specification/2025-06-18
+MCP_VERSION: str = "2025-06-18"
 
 
 class McpServiceAgentSession(AbstractHttpServiceAgentSession, AgentSession):
