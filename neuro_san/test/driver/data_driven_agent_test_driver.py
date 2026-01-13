@@ -112,6 +112,11 @@ class DataDrivenAgentTestDriver:
 
             futures: List[Future] = []
             for iteration_index in range(num_iterations):
+
+                # Don't include an iteration index if there is only one iteration to do.
+                if num_iterations == 1:
+                    iteration_index = None
+
                 future: Future = executor.submit(self.capture_one_iteration, test_case, timeouts,
                                                  fixture_hocon_name, iteration_index)
                 futures.append(future)
@@ -264,9 +269,13 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
         datestr: str = now.strftime("%Y-%m-%d-%H_%M_%S")
         basis_dir: str = os.environ.get("AGENT_TEST_THINKING_BASIS", "/tmp/agent_test")
         thinking_file: str = f"{basis_dir}/{datestr}_agent.txt"
+
         # Added fixture_hocon_name to thinking_dir
         # for better uniqueness and traceability across different test fixtures.
-        thinking_dir: str = f"{basis_dir}/{datestr}_{fixture_hocon_name}_{iteration_index}"
+        index_suffix: str = ""
+        if iteration_index is not None:
+            index_suffix = f"_{iteration_index}"
+        thinking_dir: str = f"{basis_dir}/{datestr}_{fixture_hocon_name}{index_suffix}"
 
         # Remove any contents that might be there already.
         # Writing over existing dir will just confuse output.
