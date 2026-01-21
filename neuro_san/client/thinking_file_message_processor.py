@@ -125,7 +125,7 @@ class ThinkingFileMessageProcessor(MessageProcessor):
                 # Retry with a uuid as file name.
                 # If this fails, there's no helping ya.
                 origin_filename = str(uuid.uuid4())
-                self._write_to_file(origin_filename, origin_str, message_type_str, use_origin, text)
+                self._write_to_file(origin_filename, origin_str, message_type_str, use_origin, text, timestamp)
 
                 # Squirell that uuid away so results continue to go to the same
                 # file over and over again.
