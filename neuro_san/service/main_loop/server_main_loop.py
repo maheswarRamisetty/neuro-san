@@ -25,6 +25,7 @@ from argparse import ArgumentParser
 from leaf_server_common.logging.logging_setup import setup_logging
 
 from neuro_san import DEPLOY_DIR
+from neuro_san import TOP_LEVEL_DIR
 from neuro_san.interfaces.agent_session import AgentSession
 from neuro_san.service.interfaces.startable import Startable
 from neuro_san.internals.graph.persistence.registry_manifest_restorer import RegistryManifestRestorer
@@ -214,7 +215,7 @@ class ServerMainLoop:
         Return a file path to default location of OpenAPI specification file
         for neuro-san service.
         """
-        return ""
+        return TOP_LEVEL_DIR.get_file_in_basis("api/grpc/agent_service.json")
 
     def main_loop(self):
         """
