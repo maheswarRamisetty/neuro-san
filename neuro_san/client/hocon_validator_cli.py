@@ -38,6 +38,8 @@ from typing import List
 
 import argparse
 import json
+import os
+import shutil
 import sys
 
 from pyparsing.exceptions import ParseException
@@ -165,18 +167,64 @@ Examples:
             help="Output validation results as JSON"
         )
 
+        arg_parser.add_argument(
+            "--registry-dir",
+            type=str,
+            default=None,
+            dest="registry_dir",
+            help="Base directory containing the registries folder for resolving HOCON includes. "
+                 "Use this when your HOCON file has includes like 'include \"registries/...\"'"
+        )
+
         self.args = arg_parser.parse_args()
 
     def load_hocon_file(self, file_path: str) -> Dict[str, Any]:
         """
         Load and parse a HOCON file.
 
+        If registry_dir is specified, the file is temporarily copied to that directory
+        so that HOCON includes (like 'include "registries/..."') can be resolved correctly.
+
         :param file_path: Path to the HOCON file
         :return: Parsed configuration dictionary
         """
+        abs_file_path: str = os.path.abspath(file_path)
+
+        if self.args.registry_dir:
+            return self._load_with_registry_dir(abs_file_path, self.args.registry_dir)
+
         restorer = AgentNetworkRestorer(registry_dir=None)
-        agent_network = restorer.restore(file_reference=file_path)
+        agent_network = restorer.restore(file_reference=abs_file_path)
         return agent_network.get_config()
+
+    def _load_with_registry_dir(self, file_path: str, registry_dir: str) -> Dict[str, Any]:
+        """
+        Load a HOCON file by temporarily copying it to the registry directory.
+
+        This allows HOCON includes to be resolved relative to the registry directory.
+
+        :param file_path: Absolute path to the HOCON file
+        :param registry_dir: Directory containing the registries folder
+        :return: Parsed configuration dictionary
+        """
+        abs_registry_dir: str = os.path.abspath(registry_dir)
+
+        if not os.path.isdir(abs_registry_dir):
+            raise ValueError(f"Registry directory does not exist: {abs_registry_dir}")
+
+        temp_file: str = None
+        try:
+            base_name: str = os.path.basename(file_path)
+            temp_file = os.path.join(abs_registry_dir, f"_temp_validate_{base_name}")
+
+            shutil.copy(file_path, temp_file)
+
+            restorer = AgentNetworkRestorer(registry_dir=None)
+            agent_network = restorer.restore(file_reference=temp_file)
+            return agent_network.get_config()
+        finally:
+            if temp_file and os.path.exists(temp_file):
+                os.remove(temp_file)
 
     def create_validator(self) -> DictionaryValidator:
         """
