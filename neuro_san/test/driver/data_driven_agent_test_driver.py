@@ -265,36 +265,45 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
         use_timeouts: List[Timeout] = copy(timeouts)
 
         # Prepare the processor
-        now = datetime.now()
-        datestr: str = now.strftime("%Y-%m-%d-%H_%M_%S")
-        basis_dir: str = os.environ.get("AGENT_TEST_THINKING_BASIS", "/tmp/agent_test")
-        thinking_file: str = f"{basis_dir}/{datestr}_agent.txt"
+        thinking_dir: str = None
 
-        # Added fixture_hocon_name to thinking_dir
-        # for better uniqueness and traceability across different test fixtures.
-        index_suffix: str = ""
-        if iteration_index is not None:
-            index_suffix = f"_{iteration_index}"
-        thinking_dir: str = f"{basis_dir}/{datestr}_{fixture_hocon_name}{index_suffix}"
+        # A reasonable default here is basis_dir = "/tmp/agent_test", but we
+        # don't want to write thinking files out if no one wants them.
+        basis_dir: str = os.environ.get("AGENT_TEST_THINKING_BASIS")
+        if basis_dir is not None and len(basis_dir) > 0:
+            now = datetime.now()
+            datestr: str = now.strftime("%Y-%m-%d_%H-%M-%S")
 
-        # Remove any contents that might be there already.
-        # Writing over existing dir will just confuse output.
-        # Although it is unlikely that two tests run at the same time...
-        if os.path.exists(thinking_dir):
-            shutil.rmtree(thinking_dir)
-        # Create the directory anew
-        os.makedirs(thinking_dir)
+            # Added fixture_hocon_name to thinking_dir
+            # for better uniqueness and traceability across different test fixtures.
+            index_suffix: str = ""
+            if iteration_index is not None:
+                index_suffix = f"_{iteration_index}"
+            thinking_dir = f"{basis_dir}/{datestr}_{fixture_hocon_name}{index_suffix}"
 
-        input_processor = StreamingInputProcessor("", thinking_file, session, thinking_dir)
+            # Remove any contents that might be there already.
+            # Writing over existing dir will just confuse output.
+            # Although it is unlikely that two tests run at the same time...
+            if os.path.exists(thinking_dir):
+                shutil.rmtree(thinking_dir)
+            # Create the directory anew
+            os.makedirs(thinking_dir)
+
+        input_processor = StreamingInputProcessor(session=session, thinking_dir=thinking_dir)
         processor: BasicMessageProcessor = input_processor.get_message_processor()
 
         # Prepare the request
         text: str = interaction.get("text")
         sly_data: str = interaction.get("sly_data")
+
         # By having level to MINIMAL avoid unnecesssary thinking file(s) created.
         # MAXIMAL set to have thinking files.
+        default_chat_filter: str = "MINIMAL"
+        if thinking_dir is not None:
+            default_chat_filter: str = "MAXIMAL"
+
         chat_filter: Dict[str, Any] = {
-            "chat_filter_type": interaction.get("chat_filter", "MINIMAL")
+            "chat_filter_type": interaction.get("chat_filter", default_chat_filter)
         }
         request: Dict[str, Any] = input_processor.formulate_chat_request(text, sly_data, chat_context, chat_filter)
 
