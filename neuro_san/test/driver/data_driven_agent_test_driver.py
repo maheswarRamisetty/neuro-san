@@ -55,7 +55,7 @@ class DataDrivenAgentTestDriver:
 
     TEST_KEYS: List[str] = ["text", "structure", "sly_data"]
 
-    def __init__(self, asserts: AssertForwarder, fixtures: FileOfClass = None):
+    def __init__(self, asserts: AssertForwarder, fixtures: FileOfClass = None, test_name: str = None):
         """
         Constructor
         :param asserts: The AssertForwarder instance to use to integrate failures
@@ -64,6 +64,7 @@ class DataDrivenAgentTestDriver:
         """
         self.asserts_basis: AssertForwarder = asserts
         self.fixtures: FileOfClass = fixtures
+        self.test_name: str = test_name
 
     # pylint: disable=too-many-locals
     def one_test(self, hocon_file: str):
@@ -274,12 +275,18 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
             now = datetime.now()
             datestr: str = now.strftime("%Y-%m-%d_%H-%M-%S")
 
-            # Added fixture_hocon_name to thinking_dir
+            # Add a test name to thinking_dir
             # for better uniqueness and traceability across different test fixtures.
+            use_name: str = self.test_name
+            if use_name is None:
+                use_name: str = fixture_hocon_name
+
+            # Add iteration index for uniqueness
             index_suffix: str = ""
             if iteration_index is not None:
                 index_suffix = f"_{iteration_index}"
-            thinking_dir = f"{basis_dir}/{datestr}_{fixture_hocon_name}{index_suffix}"
+
+            thinking_dir = f"{basis_dir}/{datestr}_{use_name}{index_suffix}"
 
             # Remove any contents that might be there already.
             # Writing over existing dir will just confuse output.
