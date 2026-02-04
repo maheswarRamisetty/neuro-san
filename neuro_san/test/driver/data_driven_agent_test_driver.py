@@ -324,7 +324,12 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
         chat_filter: Dict[str, Any] = {
             "chat_filter_type": interaction.get("chat_filter", default_chat_filter)
         }
-        request: Dict[str, Any] = input_processor.formulate_chat_request(text, current_sly_data, chat_context, chat_filter)
+        request: Dict[str, Any] = input_processor.formulate_chat_request(
+            text,
+            current_sly_data,
+            chat_context,
+            chat_filter
+            )
 
         # Prepare any interaction timeout
         if interaction.get("timeout_in_seconds") is not None:
