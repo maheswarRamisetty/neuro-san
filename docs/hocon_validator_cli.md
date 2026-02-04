@@ -30,9 +30,9 @@ This is important when your HOCON files contain includes like `include "registri
 By default, the registry directory is determined as follows:
 
 1. If the `AGENT_MANIFEST_FILE` environment variable is set, the registry directory is the parent directory of
-   that file's parent directory
-2. If `AGENT_MANIFEST_FILE` is not set, it defaults to `{current_working_directory}/registries/manifest.hocon`,
-   and the registry directory becomes the current working directory
+   that file's parent directory (e.g., if `AGENT_MANIFEST_FILE=/path/to/neuro_san/registries/manifest.hocon`,
+   then the registry directory is `/path/to/neuro_san`)
+2. If `AGENT_MANIFEST_FILE` is not set, the registry directory defaults to the current working directory
 
 ### Overriding the Registry Directory
 
