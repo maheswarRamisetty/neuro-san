@@ -1,0 +1,136 @@
+from typing import Any
+from typing import Dict
+from typing import List
+
+
+class Authorizer:
+    """
+    An interface for authorization.
+    This is based on what we need from what packages like OpenFGA or Oso provide.
+    """
+
+    def authorize(self, actor: Dict[str, Any], action: str, resource: Dict[str, Any]) -> bool:
+        """
+        :param actor: The actor dictionary with the keys "type" and "id" identifying what
+                      is seeking permission.  Most often this is of the form:
+                        {
+                            "type": "User",
+                            "id": "<username>"
+                        }
+        :param action:  The action for which the user is asking permission for.
+                        Most often this is one of the Permission values of:
+                            "create", "read", "update" or "delete".
+        :param resource: The resource dictionary with the keys "type" and "id" identifying
+                      just what is to be authorized for use.  For instance:
+                        {
+                            "type": "Network",
+                            "id": "hello_world"
+                        }
+        :return: True if the actor is allowed to take the requested action on the resource.
+                 False otherwise.
+        """
+        raise NotImplementedError
+
+    def grant(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]):
+        """
+        :param actor: The actor dictionary with the keys "type" and "id" identifying what
+                      will be permitted.  Most often this is of the form:
+                        {
+                            "type": "User",
+                            "id": "<username>"
+                        }
+        :param relation: The relation for which the user will be permitted.
+                     Most often this is one of the strings from the Role enum.
+
+        :param resource: The resource dictionary with the keys "type" and "id" identifying
+                      just what is to be authorized for use.  For instance:
+                        {
+                            "type": "Network",
+                            "id": "hello_world"
+                        }
+        :return: Nothing
+        """
+        raise NotImplementedError
+
+    def revoke(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]):
+        """
+        :param actor: The actor dictionary with the keys "type" and "id" identifying what
+                      will no longer be permitted.  Most often this is of the form:
+                        {
+                            "type": "User",
+                            "id": "<username>"
+                        }
+        :param relation: The relation for which the user will no longer be permitted.
+                     Most often this is one of the strings from the Role enum.
+
+        :param resource: The resource dictionary with the keys "type" and "id" identifying
+                      just what is to be no longer authorized for use.  For instance:
+                        {
+                            "type": "Network",
+                            "id": "hello_world"
+                        }
+        :return: Nothing
+        """
+        raise NotImplementedError
+
+    def list(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> List[str]:
+        """
+        Return a list of resource ids that the actor has the given relation to,
+        as per the graph specified by the authorization model.
+
+        :param actor: The actor dictionary with the keys "type" and "id" identifying what
+                      entity's relation should be checked.  Most often this is of the form:
+                        {
+                            "type": "User",
+                            "id": "<username>"
+                        }
+        :param relation: The relation for which the user's permissions will be checked.
+                        Most often this is one of the Permission values of:
+                            "create", "read", "update" or "delete".
+
+        :param resource: The resource dictionary with the keys "type" and "id" identifying
+                      just what is to be authorized for use.  For instance:
+                        {
+                            "type": "Network",
+                            # Note: "id" is not specified. We want a list of these returned.
+                        }
+        :return: A list of resource ids that the actor has the given relation with.
+                 An empty return list implies that the actor has access to no objects
+                 of the given resource type.
+        """
+        raise NotImplementedError
+
+    def query(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> List[str]:
+        """
+        Instead of a boolean answer from authorize() above, this method gives a list
+        of resources of the given resource type (in the dict) that the actor has the
+        *direct* given relation to.  This does not take authorization policy graphs
+        into account.
+
+        :param actor: The actor dictionary with the keys "type" and "id" identifying what
+                      will be permitted.  Most often this is of the form:
+                        {
+                            "type": "User",
+                            "id": "<username>"
+                        }
+        :param relation: The relation for which the user will be permitted.
+                     Most often this is one of the strings from the Role enum.
+
+        :param resource: The resource dictionary with the keys "type" and "id" identifying
+                      just what is to be authorized for use.  For instance:
+                        {
+                            "type": "Network",
+                            "id": "hello_world"
+                        }
+        :return: A list of relations (which can be None or empty) that the actor
+                has the given relation with.
+        """
+        raise NotImplementedError
+
+    def get_other_attrs(self) -> List[str]:
+        """
+        :return: A list of string attribute names that need to be carried forward
+                so that the AuthorizationPolicyAdapter can work.
+        """
+        # Any default implementation should not have to worry about this.
+        return []
