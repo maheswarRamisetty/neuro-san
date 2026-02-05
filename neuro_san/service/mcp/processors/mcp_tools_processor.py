@@ -218,7 +218,8 @@ class McpToolsProcessor:
         response_type: str = response_part_dict.get("type", "")
         if response_type == "AGENT_FRAMEWORK":
             text: str = response_part_dict.get("text", None)
-            structure_data: Dict[str, Any] = response_part_dict.get("structure", None)
+            # For final response, there could be chat_context structured data we need to return:
+            structure_data: Dict[str, Any] = response_part_dict.get("chat_context", None)
             return text, structure_data
         return None, None
 
