@@ -1,0 +1,246 @@
+from typing import Any
+from typing import Dict
+
+import json
+import os
+
+from openfga_sdk import ClientConfiguration
+from openfga_sdk.credentials import CredentialConfiguration
+from openfga_sdk.credentials import Credentials
+from openfga_sdk.exceptions import FgaValidationException
+from openfga_sdk.models.create_store_request import CreateStoreRequest
+from openfga_sdk.models.create_store_response import CreateStoreResponse
+from openfga_sdk.models.list_stores_response import ListStoresResponse
+from openfga_sdk.models.read_authorization_models_response import ReadAuthorizationModelsResponse
+from openfga_sdk.models.write_authorization_model_request import WriteAuthorizationModelRequest
+from openfga_sdk.models.write_authorization_model_response import WriteAuthorizationModelResponse
+from openfga_sdk.sync import OpenFgaClient
+
+
+class OpenFgaInit:
+    """
+    Class to initialize the OpenFGA client where:
+        * an OpenFGA store will be created if one does not exist
+        * an authorization policy will be uploaded to that store if one does not exist.
+
+    Per the Open FGA docs here:
+        https://github.com/openfga/python-sdk?tab=readme-ov-file#initializing-the-api-client
+
+        "We strongly recommend you initialize the OpenFgaClient only once
+         and then re-use it throughout your app..."
+
+    ... so this is not to be used by workaday client code.
+    Use SynchronousOpenFgaClient.get() instead.
+    """
+
+    DEFAULT_STORE_NAME: str = "default"
+
+    def __init__(self):
+        """
+        Constructor.
+
+        This is not to be used by workaday client code.
+        Use SynchronousOpenFgaClient.get() instead.
+        """
+        self.open_fga_client: OpenFgaClient = None
+
+    def initialize_client_for_store(self, store_name: str) -> OpenFgaClient:
+        """
+        Initialize a client for general usage.
+        This might involve initializing a whole bunch of other stuff if the OpenFGA
+        infrastructure has not yet been set up and so is expected to take awhile
+        the first time around for any given store_name.
+        """
+        self.open_fga_client = self.initialize_one_client()
+        self.open_fga_client = self.maybe_initialize_store(store_name)
+        self.open_fga_client = self.prepare_policy()
+        self.sync()
+
+        return self.open_fga_client
+
+    @staticmethod
+    def initialize_one_client(store_id: str = None, model_id: str = None) -> OpenFgaClient:
+        """
+        Initializes an OpenFgaClient.  Logic from:
+            https://openfga.dev/docs/getting-started/setup-sdk-client
+
+        :param store_id: A specific fact store_id for the client to connect to.
+                         Default is None and certain client operations like CreateStore and ListStores
+                         do not need a store_id.
+        :param authorization_model_id: A default authorization model for the client to use within the store.
+                        Can be None. This is OK in certain initialization situations.
+                        Many client API calls can have the model_id as part of its request,
+                        but to workaday calling code it's much more conventient to have this settled.
+        """
+
+        # Get OpenFGA env vars that point to its cloud service.
+        # This might also want to come from setup config eventually.
+        api_url: str = os.environ.get("FGA_API_URL")
+        api_token: str = os.environ.get("FGA_API_TOKEN")
+
+        credentials = None
+        if api_token is not None:
+            # Checkmarx flags this as a source for Privacy Violation path 2, 3, 4
+            # This is a False Positive. Credentials themselves are not leaked anywhere.
+            credentials = Credentials(method="api_token",
+                                      configuration=CredentialConfiguration(api_token=api_token))
+        configuration = ClientConfiguration(api_url=api_url,
+                                            store_id=store_id,
+                                            authorization_model_id=model_id,
+                                            credentials=credentials)
+
+        # Initialize our OpenFGA connection
+        fga_client = OpenFgaClient(configuration)
+
+        return fga_client
+
+    def maybe_initialize_store(self, store_name: str) -> OpenFgaClient:
+        """
+        Determines whether or not the fact store needs one-time initialization
+        from ground-zero.  Logic from:
+            https://openfga.dev/docs/getting-started/create-store
+
+        :param open_fga_client: An OpenFgaClient to make the determination about the store
+        :return: Same or different OpenFgaClient that is initialized to talk to the store.
+        """
+
+        # Look for our store
+        use_store_name: str = os.environ.get("TEST_FGA_STORE_NAME", store_name)
+        print(f"Using store name {use_store_name}")
+        store_id: str = None
+
+        # This is the first place that we attempt to connect to the OpenFGA server.
+        try:
+            response: ListStoresResponse = self.open_fga_client.list_stores()
+
+        except FgaValidationException as exception:
+            # Make sure the error reflects what is going on better
+            raise ValueError("FGA_API_URL env var not set correctly") from exception
+
+        for store in response.stores:
+            # store is a openfga_sdk.models.store.Store
+            if store.name == use_store_name:
+                store_id = store.id
+                # Checkmarx flags this as a destination for Privacy Violation path 4
+                # This is a False Positive. store ids and names themselves are not actually sensitive information.
+                print(f"Found {store_id} for name {use_store_name}")
+                break
+
+        # Create the store and a new client if not found
+        if not store_id:
+            body = CreateStoreRequest(name=use_store_name)
+            response: CreateStoreResponse = self.open_fga_client.create_store(body)
+            store_id: str = response.id
+            # Checkmarx flags this as a destination for Privacy Violation path 3
+            # This is a False Positive. "store_id" itself is not actually sensitive information.
+            print(f"Created FGA store id {store_id}")
+
+        # From here on, always create a new client with the store_id configured
+        new_client: OpenFgaClient = self.initialize_one_client(store_id)
+
+        return new_client
+
+    def prepare_policy(self) -> OpenFgaClient:
+        """
+        Prepare authorization policy for upload
+        By the end of this method the existing open_fga_client member
+        will be modified to use the current policy.
+        """
+
+        # Find where our configuration files live relative to this one.
+        this_file_dir: str = os.path.dirname(os.path.abspath(__file__))
+        open_fga_policy_file: str = os.path.join(this_file_dir, "neuroai_model.json")
+
+        # Read the OpenFGA policy from configuration
+        policy: Dict[str, Any] = {}
+        with open(open_fga_policy_file, "r", encoding="utf-8") as policy_file:
+            policy = json.load(policy_file)
+
+        found_auth_model: str = self.find_auth_model(policy)
+
+        # Do we need to store a new version of the auth model?
+        if found_auth_model is None:
+            found_auth_model = self.update_auth_model(policy)
+
+        # For now. Needs more to set the model up
+        # Checkmarx flags this as a destination for Privacy Violation path 1 and 2
+        # This is a False Positive. Any auth model id itself is not actually sensitive information.
+        print(f"FGA auth model id {found_auth_model}")
+
+        return self.open_fga_client
+
+    def find_auth_model(self, policy: Dict[str, Any]) -> str:
+        """
+        Looks for an existing authorization model that matches the
+        model_info dictionary in the policy file.
+        :param policy: The dictionary from the auth model JSON file
+        :return: The AuthorizationModel id for the store that matches the version and
+                checksum in the model_info.  If no such model exists, then None
+                is returned.
+        """
+
+        # Ask about existing auth models associated with the store
+        response: ReadAuthorizationModelsResponse = self.open_fga_client.read_authorization_models()
+
+        # Look for the authorization model we specified.
+        found_auth_model: str = None
+
+        # Checkmarx flags this as a source for Privacy Violation path 1
+        # This is a False Positive. Any auth model id itself is not actually sensitive information.
+        auth_model_id: str = os.environ.get("FGA_MODEL_ID")
+
+        # Find the model_info in the json file.
+        for auth_model in response.authorization_models:
+            # Look for what was specified in the env var (if anything was specified there)
+            if auth_model.id == auth_model_id:
+                found_auth_model = auth_model.id
+                break
+
+            self.open_fga_client.set_authorization_model_id(auth_model.id)
+            self.auth_model_dict["id"] = auth_model.id
+
+            found_auth_model = auth_model.id
+
+        return found_auth_model
+
+    def update_auth_model(self, policy: Dict[str, Any]) -> str:
+        """
+        Updates the auth model and associates it with the store.
+        :param policy: The dictionary from the auth model JSON file
+        :return: The AuthorizationModel id for the new model created for the store
+        """
+        auth_model_id: str = None
+
+        # Find the model_info in the json file.
+        model_info: Dict[str, Any] = {}
+        model_info = policy.get("model_info", model_info)
+
+        request = WriteAuthorizationModelRequest(
+            type_definitions=policy.get("type_definitions"),
+            schema_version=policy.get("schema_version"),
+            conditions=policy.get("conditions"),
+            local_vars_configuration=policy.get("local_vars_configuration"))
+        response: WriteAuthorizationModelResponse = \
+            self.open_fga_client.write_authorization_model(request)
+        auth_model_id = response.authorization_model_id
+
+        # Update the model version and checksum now that we've written the model itself.
+        self.open_fga_client.set_authorization_model_id(auth_model_id)
+        self.auth_model_dict["id"] = auth_model_id
+
+        return auth_model_id
+
+    @staticmethod
+    def remove_store_for_testing(open_fga_client: OpenFgaClient):
+        """
+        Removes the store associated with the given client.
+        :param open_fga_client: The client whose store is to be deleted
+        """
+        if open_fga_client is not None:
+            open_fga_client.delete_store()
+
+    def sync(self) -> None:
+        """
+        Optional method to synchronize the OpenFGA server with any new model changes.
+        """
+        pass

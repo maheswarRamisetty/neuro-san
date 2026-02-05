@@ -9,6 +9,8 @@ from threading import Lock
 
 from openfga_sdk.sync import OpenFgaClient
 
+from neuro_san.service.authorization.open_fga_init import OpenFgaInit
+
 
 class SynchronousOpenFgaClient:
     """
@@ -29,8 +31,6 @@ class SynchronousOpenFgaClient:
     single threaded tests so that they specifically do not stomp on anything
     real code would use.
     """
-
-    DEFAULT_STORE_NAME: str = "default"
 
     def __init__(self):
         """
@@ -57,7 +57,7 @@ class SynchronousOpenFgaClient:
         if store_name is None:
             # This allows workaday code to not worry about store names,
             # including when it is called by unit tests.
-            store_name = os.environ.get("TEST_FGA_STORE_NAME", cls.DEFAULT_STORE_NAME)
+            store_name = os.environ.get("TEST_FGA_STORE_NAME", OpenFgaInit.DEFAULT_STORE_NAME)
 
         fga_client: OpenFgaClient = cls.get_instance().get_client(store_name)
         return fga_client
@@ -90,7 +90,7 @@ class SynchronousOpenFgaClient:
         if store_name is None:
             # This allows workaday code to not worry about store names,
             # including when it is called by unit tests.
-            store_name = os.environ.get("TEST_FGA_STORE_NAME", self.DEFAULT_STORE_NAME)
+            store_name = os.environ.get("TEST_FGA_STORE_NAME", OpenFgaInit.DEFAULT_STORE_NAME)
 
         # See if we have a client for the store name/thread id combo.
         map_key: str = self.get_map_key(store_name)
@@ -103,14 +103,6 @@ class SynchronousOpenFgaClient:
                 fga_client = OpenFgaInit().initialize_client_for_store(store_name)
 
                 self.client_map[map_key] = fga_client
-
-                # OpenFgaSync has a per-store-name check as to whether
-                # the sync has happened yet for the given store name,
-                # allowing the been-there-done-that case to be quick.
-                # It expects to be called while a lock is held so other
-                # threads do not do the same thing.
-                sync = OpenFgaSync(fga_client)
-                sync.sync()
 
         return fga_client
 
@@ -143,7 +135,7 @@ class SynchronousOpenFgaClient:
 
             # Do not actually remove the default store as that is what the app
             # will be using. Remove any other store for testing though.
-            if self.DEFAULT_STORE_NAME not in map_key:
+            if OpenFgaInit.DEFAULT_STORE_NAME not in map_key:
                 OpenFgaInit.remove_store_for_testing(fga_client)
 
             fga_client.close()
