@@ -9,7 +9,7 @@ from threading import Lock
 
 from openfga_sdk.sync import OpenFgaClient
 
-from neuro_san.service.authorization.open_fga_init import OpenFgaInit
+from neuro_san.service.authorization.openfga.open_fga_init import OpenFgaInit
 
 
 class SynchronousOpenFgaClient:

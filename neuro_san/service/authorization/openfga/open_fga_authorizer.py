@@ -45,14 +45,12 @@ class OpenFgaAuthorizer(Authorizer):
                         }
         :param action: The action for which the user is asking permission for.
                       Most often this is one of the strings "create", "read", "update" or "delete".
-                      This can come in as an Permission Enum.
         :param resource: The resource dictionary with the keys "type" and "id" identifying
                       just what is to be authorized for use.  For instance:
                         {
-                            "type": "Project",
-                            "id": 12345
+                            "type": "Network",
+                            "id": "hello_world"
                         }
-                      Type can come in as a ResourceType Enum.
         :return: True if the actor is allowed to take the requested action on the resource.
                  False otherwise.
         """
@@ -116,7 +114,7 @@ class OpenFgaAuthorizer(Authorizer):
         :param resource: The resource dictionary with the keys "type" and "id" identifying
                       just what is to be authorized for use.  For instance:
                         {
-                            "type": "Project",
+                            "type": "Network",
                             # Note: "id" is not specified. We want a list of these returned.
                         }
         :return: A list of resource ids that the actor has the given relation with.
@@ -181,8 +179,8 @@ class OpenFgaAuthorizer(Authorizer):
         :param resource: The resource dictionary with the keys "type" and "id" identifying
                       just what is to be authorized for use.  For instance:
                         {
-                            "type": "Project",
-                            "id": 12345
+                            "type": "Network",
+                            "id": "hello_world"
                         }
         :return: A list of relations (which can be None or empty) that the actor
                 has the given relation with.
@@ -250,8 +248,8 @@ class OpenFgaAuthorizer(Authorizer):
         :param resource: The resource dictionary with the keys "type" and "id" identifying
                       just what is to be authorized for use.  For instance:
                         {
-                            "type": "Project",
-                            "id": 12345
+                            "type": "Network",
+                            "id": "hello_world"
                         }
         :return: Nothing
         """
@@ -295,8 +293,8 @@ class OpenFgaAuthorizer(Authorizer):
         :param resource: The resource dictionary with the keys "type" and "id" identifying
                       just what is to be no longer authorized for use.  For instance:
                         {
-                            "type": "Project",
-                            "id": 12345
+                            "type": "Network",
+                            "id": "hello_world"
                         }
         :return: Nothing
         """
