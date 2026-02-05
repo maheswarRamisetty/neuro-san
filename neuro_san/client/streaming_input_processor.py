@@ -92,9 +92,6 @@ class StreamingInputProcessor:
 
         return_state: Dict[str, Any] = copy(state)
         returned_sly_data: Optional[Dict[str, Any]] = None
-
-        print(f"********************* DEBUG: Sending chat request to agent...{json.dumps(chat_request, indent=4)}")
-
         chat_responses: Generator[Dict[str, Any], None, None] = self.session.streaming_chat(chat_request)
         for chat_response in chat_responses:
 
@@ -103,14 +100,10 @@ class StreamingInputProcessor:
                 print(f"DEBUG: MCP chat response: {json.dumps(mcp_response, indent=4)}")
 
             response: Dict[str, Any] = chat_response.get("response", empty)
-            print(f"*****============= DEBUG: Received chat response from agent...{json.dumps(response, indent=4)}")
             self.processor.process_message(response)
 
             # Update the state if there is something to update it with
             chat_context = self.processor.get_chat_context()
-
-            print(f"DEBUG: Updated chat_context: {json.dumps(chat_context, indent=4)}")
-
             last_chat_response = self.processor.get_compiled_answer()
             returned_sly_data: Dict[str, Any] = self.processor.get_sly_data()
             origin_str = Origination.get_full_name_from_origin(self.processor.get_answer_origin())
