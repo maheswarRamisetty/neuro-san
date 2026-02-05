@@ -273,35 +273,10 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
         use_timeouts: List[Timeout] = copy(timeouts)
 
         # Prepare the processor
-        thinking_dir: str = None
-
-        # A reasonable default here is basis_dir = "/tmp/agent_test", but we
-        # don't want to write thinking files out if no one wants them.
-        basis_dir: str = os.environ.get("AGENT_TEST_THINKING_BASIS")
-        if basis_dir is not None and len(basis_dir) > 0:
-            now = datetime.now()
-            datestr: str = now.strftime("%Y-%m-%d_%H-%M-%S")
-
-            # Add a test name to thinking_dir
-            # for better uniqueness and traceability across different test fixtures.
-            use_name: str = self.test_name
-            if use_name is None:
-                use_name: str = fixture_hocon_name
-
-            # Add iteration index for uniqueness
-            index_suffix: str = ""
-            if iteration_index is not None:
-                index_suffix = f"_{iteration_index}"
-
-            thinking_dir = f"{basis_dir}/{datestr}_{use_name}{index_suffix}"
-
-            # Remove any contents that might be there already.
-            # Writing over existing dir will just confuse output.
-            # Although it is unlikely that two tests run at the same time...
-            if os.path.exists(thinking_dir):
-                shutil.rmtree(thinking_dir)
-            # Create the directory anew
-            os.makedirs(thinking_dir)
+        thinking_dir: str = self._setup_thinking_dir(
+            fixture_hocon_name=fixture_hocon_name,
+            iteration_index=iteration_index,
+        )
 
         input_processor = StreamingInputProcessor(session=session, thinking_dir=thinking_dir,
                                                   thinking_file="")
@@ -324,12 +299,13 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
         chat_filter: Dict[str, Any] = {
             "chat_filter_type": interaction.get("chat_filter", default_chat_filter)
         }
+
         request: Dict[str, Any] = input_processor.formulate_chat_request(
             text,
             current_sly_data,
             chat_context,
             chat_filter
-            )
+        )
 
         # Prepare any interaction timeout
         if interaction.get("timeout_in_seconds") is not None:
@@ -435,3 +411,56 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
                 return current_sly_data
             return returned_sly_data.copy()
         return current_sly_data
+
+    def _setup_thinking_dir(
+        self,
+        fixture_hocon_name: str,
+        iteration_index: int,
+    ) -> str:
+        """
+        Set up the thinking directory for this interaction, if configured.
+
+        This method constructs a unique per-interaction directory under the path
+        specified by the AGENT_TEST_THINKING_BASIS environment variable. The directory
+        name incorporates a timestamp, the test name (or fixture hocon name as a
+        fallback), and the iteration index to improve traceability across test runs.
+
+        If AGENT_TEST_THINKING_BASIS is not set or is empty, no directory is created
+        and None is returned.
+
+        :param fixture_hocon_name: A string containing the name of the fixture hocon file
+        :param iteration_index: The index of this test iteration for the success_ratio
+        :return: The path to the created thinking directory, or None if not configured
+        """
+        # Prepare the processor
+        thinking_dir: str = None
+
+        # A reasonable default here is basis_dir = "/tmp/agent_test", but we
+        # don't want to write thinking files out if no one wants them.
+        basis_dir: str = os.environ.get("AGENT_TEST_THINKING_BASIS")
+        if basis_dir is not None and len(basis_dir) > 0:
+            now = datetime.now()
+            datestr: str = now.strftime("%Y-%m-%d_%H-%M-%S")
+
+            # Add a test name to thinking_dir
+            # for better uniqueness and traceability across different test fixtures.
+            use_name: str = self.test_name
+            if use_name is None:
+                use_name: str = fixture_hocon_name
+
+            # Add iteration index for uniqueness
+            index_suffix: str = ""
+            if iteration_index is not None:
+                index_suffix = f"_{iteration_index}"
+
+            thinking_dir = f"{basis_dir}/{datestr}_{use_name}{index_suffix}"
+
+            # Remove any contents that might be there already.
+            # Writing over existing dir will just confuse output.
+            # Although it is unlikely that two tests run at the same time...
+            if os.path.exists(thinking_dir):
+                shutil.rmtree(thinking_dir)
+            # Create the directory anew
+            os.makedirs(thinking_dir)
+
+        return thinking_dir
