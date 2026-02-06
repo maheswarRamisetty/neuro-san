@@ -14,9 +14,10 @@
 # limitations under the License.
 #
 # END COPYRIGHT
-"""
-See class comment for details
-"""
+
+from typing import Any
+from typing import Dict
+
 from neuro_san.service.generic.async_agent_service_provider import AsyncAgentServiceProvider
 
 
@@ -26,7 +27,7 @@ class AgentAuthorizer:
     of allowing to route incoming requests to an agent.
     """
 
-    def allow(self, agent_name) -> AsyncAgentServiceProvider:
+    def allow(self, agent_name: str, metadata: Dict[str, Any]) -> AsyncAgentServiceProvider:
         """
         :param agent_name: name of an agent
         :return: instance of AsyncAgentService if routing requests is allowed for this agent;

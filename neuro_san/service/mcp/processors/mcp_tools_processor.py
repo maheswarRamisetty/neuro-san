@@ -102,7 +102,7 @@ class McpToolsProcessor:
         # pylint: disable=too-many-arguments
         # pylint: disable=too-many-positional-arguments
 
-        service_provider: AsyncAgentServiceProvider = self.agent_policy.allow(tool_name)
+        service_provider: AsyncAgentServiceProvider = self.agent_policy.allow(tool_name, metadata)
         if service_provider is None:
             # No such tool is found:
             return McpErrorsUtil.get_tool_error(request_id, f"Tool not found: {tool_name}")
@@ -193,7 +193,7 @@ class McpToolsProcessor:
         return call_result
 
     async def _get_tool_description(self, agent_name: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
-        service_provider: AsyncAgentServiceProvider = self.agent_policy.allow(agent_name)
+        service_provider: AsyncAgentServiceProvider = self.agent_policy.allow(agent_name, metadata)
         if service_provider is None:
             return None
         service: AsyncAgentService = service_provider.get_service()

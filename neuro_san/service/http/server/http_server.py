@@ -214,7 +214,7 @@ class HttpServer(AgentAuthorizer, AgentStateListener):
 
         return HttpServerApp(handlers, requests_limit, logger, self.forwarded_request_metadata)
 
-    def allow(self, agent_name) -> AsyncAgentServiceProvider:
+    def allow(self, agent_name: str, metadata: Dict[str, Any]) -> AsyncAgentServiceProvider:
         return self.allowed_agents.get(agent_name)
 
     def agent_added(self, agent_name: str, source: AgentStorageSource):
