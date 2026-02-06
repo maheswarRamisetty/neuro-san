@@ -79,7 +79,8 @@ class AbstractAuthorizer(Authorizer):
                         }
         :return: Nothing
         """
-        raise NotImplementedError
+        # Do nothing, return nothing.
+        # Having this interface is more for completeness than fulfilling Neuro SAN server functionality
 
     def revoke(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]):
         """
@@ -100,7 +101,8 @@ class AbstractAuthorizer(Authorizer):
                         }
         :return: Nothing
         """
-        raise NotImplementedError
+        # Do nothing, return nothing.
+        # Having this interface is more for completeness than fulfilling Neuro SAN server functionality
 
     def list(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> List[str]:
         """
@@ -154,4 +156,6 @@ class AbstractAuthorizer(Authorizer):
         :return: A list of relations (which can be None or empty) that the actor
                 has the given relation with.
         """
-        raise NotImplementedError
+        # Return None indicating some other mechanism should be used
+        # Having this interface is more for completeness than fulfilling Neuro SAN server functionality
+        return None
