@@ -178,6 +178,7 @@ class OpenFgaInit:
                 checksum in the model_info.  If no such model exists, then None
                 is returned.
         """
+        _ = policy
 
         # Ask about existing auth models associated with the store
         response: ReadAuthorizationModelsResponse = self.open_fga_client.read_authorization_models()
@@ -197,7 +198,6 @@ class OpenFgaInit:
                 break
 
             self.open_fga_client.set_authorization_model_id(auth_model.id)
-            self.auth_model_dict["id"] = auth_model.id
 
             found_auth_model = auth_model.id
 
@@ -226,7 +226,6 @@ class OpenFgaInit:
 
         # Update the model version and checksum now that we've written the model itself.
         self.open_fga_client.set_authorization_model_id(auth_model_id)
-        self.auth_model_dict["id"] = auth_model_id
 
         return auth_model_id
 
@@ -243,4 +242,4 @@ class OpenFgaInit:
         """
         Optional method to synchronize the OpenFGA server with any new model changes.
         """
-        pass
+        # Do nothing, but allow overrides for specific circumstances.
