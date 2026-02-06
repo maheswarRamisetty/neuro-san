@@ -27,7 +27,7 @@ class AgentAuthorizer:
     of allowing to route incoming requests to an agent.
     """
 
-    def allow(self, agent_name: str, metadata: Dict[str, Any]) -> AsyncAgentServiceProvider:
+    async def allow(self, agent_name: str, metadata: Dict[str, Any]) -> AsyncAgentServiceProvider:
         """
         :param agent_name: name of an agent
         :return: instance of AsyncAgentService if routing requests is allowed for this agent;

@@ -137,7 +137,7 @@ class BaseRequestHandler(RequestHandler):
         :return: instance of AsyncAgentService if it is defined for this agent
                  None otherwise
         """
-        service_provider: AsyncAgentServiceProvider = self.agent_policy.allow(agent_name, metadata)
+        service_provider: AsyncAgentServiceProvider = await self.agent_policy.allow(agent_name, metadata)
         if service_provider is None:
             self.set_status(404)
             self.logger.error(metadata, "error: Invalid request path %s", self.request.path)

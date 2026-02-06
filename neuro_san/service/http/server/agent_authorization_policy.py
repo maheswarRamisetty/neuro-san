@@ -36,7 +36,7 @@ class AgentAuthorizationPolicy(AgentAuthorizer):
         """
         self.allowed_agents: Dict[str, AsyncAgentServiceProvider] = allowed_agents
 
-    def allow(self, agent_name: str, metadata: Dict[str, Any]) -> AsyncAgentServiceProvider:
+    async def allow(self, agent_name: str, metadata: Dict[str, Any]) -> AsyncAgentServiceProvider:
         """
         :param agent_name: name of an agent
         :return: instance of AsyncAgentService if routing requests is allowed for this agent;
