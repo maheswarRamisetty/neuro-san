@@ -49,7 +49,7 @@ class Accountant(CodedTool):
 
         logger.debug("========== Calling %s ==========", tool_name)
         logger.debug("args: %s", str(args))
-        
+
         # Try to get running_cost from args first, then sly_data, then default to 0.0
         if "running_cost" in args:
             running_cost: float = float(args.get("running_cost"))
