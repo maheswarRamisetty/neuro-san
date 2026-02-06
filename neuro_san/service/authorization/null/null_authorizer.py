@@ -2,8 +2,10 @@ from typing import Any
 from typing import Dict
 from typing import List
 
+from neuro_san.service.interfaces.authorizer import Authorizer
 
-class Authorizer:
+
+class NullAuthorizer(Authorizer):
     """
     An interface for authorization.
     This is based on what we need from what packages like OpenFGA or Oso provide.
@@ -29,7 +31,8 @@ class Authorizer:
         :return: True if the actor is allowed to take the requested action on the resource.
                  False otherwise.
         """
-        raise NotImplementedError
+        # By default, anyone can do anything
+        return True
 
     def grant(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]):
         """
@@ -50,7 +53,7 @@ class Authorizer:
                         }
         :return: Nothing
         """
-        raise NotImplementedError
+        # Do nothing, return nothing.
 
     def revoke(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]):
         """
@@ -71,7 +74,7 @@ class Authorizer:
                         }
         :return: Nothing
         """
-        raise NotImplementedError
+        # Do nothing, return nothing.
 
     def list(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> List[str]:
         """
@@ -98,7 +101,8 @@ class Authorizer:
                  An empty return list implies that the actor has access to no objects
                  of the given resource type.
         """
-        raise NotImplementedError
+        # Return None indicating some other mechanism should be used
+        return None
 
     def query(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> List[str]:
         """
@@ -125,4 +129,5 @@ class Authorizer:
         :return: A list of relations (which can be None or empty) that the actor
                 has the given relation with.
         """
-        raise NotImplementedError
+        # Return None indicating some other mechanism should be used
+        return None
