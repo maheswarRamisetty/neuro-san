@@ -261,7 +261,7 @@ Need at least {num_need_success} to consider {hocon_file} test to be successful.
     def interact(self, agent: str, session: AgentSession, interaction: Dict[str, Any],
                  chat_context: Dict[str, Any], asserts: AssertForwarder,
                  timeouts: List[Timeout], fixture_hocon_name: str, iteration_index: int,
-                 sly_data: Dict[str, Any] = None) -> tuple:
+                 sly_data: Dict[str, Any]) -> tuple:
         """
         Interact with an agent and evaluate its output
 
