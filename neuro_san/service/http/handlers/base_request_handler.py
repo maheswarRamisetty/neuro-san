@@ -47,8 +47,6 @@ class BaseRequestHandler(RequestHandler):
     request_id_counter: AsyncAtomicCounter = AsyncAtomicCounter()
 
     # pylint: disable=attribute-defined-outside-init
-    # pylint: disable=too-many-arguments
-    # pylint: disable=too-many-positional-arguments
     def initialize(self, **kwargs):
         """
         This method is called by Tornado framework to allow
@@ -60,13 +58,9 @@ class BaseRequestHandler(RequestHandler):
             "server_context" - ServerContext instance for this server.
         """
         # Set up local members from kwargs dictionary passed in:
-        # type: AgentAuthorizer
         self.agent_policy: AgentAuthorizer = kwargs.pop("agent_policy", None)
-        # type: List[str]
         self.forwarded_request_metadata: List[str] = kwargs.pop("forwarded_request_metadata", [])
-        # type: str
         self.openapi_service_spec: Dict[str, Any] = kwargs.pop("openapi_service_spec", None)
-        # type: ServerContext
         self.server_context: ServerContext = kwargs.pop("server_context", None)
 
         self.logger = HttpLogger(self.forwarded_request_metadata)
