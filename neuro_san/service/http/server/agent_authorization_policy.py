@@ -18,6 +18,11 @@
 from typing import Any
 from typing import Dict
 
+from os import environ
+
+from neuro_san.service.authorization.factory.authorizer_factory import AuthorizerFactory
+from neuro_san.service.authorization.interfaces.authorizer import Authorizer
+from neuro_san.service.authorization.interfaces.permission import Permission
 from neuro_san.service.generic.async_agent_service_provider import AsyncAgentServiceProvider
 from neuro_san.service.http.interfaces.agent_authorizer import AgentAuthorizer
 
@@ -36,10 +41,37 @@ class AgentAuthorizationPolicy(AgentAuthorizer):
         """
         self.allowed_agents: Dict[str, AsyncAgentServiceProvider] = allowed_agents
 
+        # Only need to get these once
+        self.authorizer: Authorizer = AuthorizerFactory.create_authorizer()
+        self.actor_key: str = environ.get("AGENT_AUTHORIZER_ACTOR_KEY", "User")
+        self.actor_id_metadata_key: str = environ.get("AGENT_AUTHORIZER_ACTOR_ID_METADATA_KEY", "user_id")
+        self.resource_key: str = environ.get("AGENT_AUTHORIZER_RESOURCE_KEY", "AgentNetwork")
+        self.action: str = environ.get("AGENT_AUTHORIZER_ALLOW_ACTION", Permission.READ.value)
+
     async def allow(self, agent_name: str, metadata: Dict[str, Any]) -> AsyncAgentServiceProvider:
         """
         :param agent_name: name of an agent
         :return: instance of AsyncAgentService if routing requests is allowed for this agent;
                  None otherwise
         """
-        return self.allowed_agents.get(agent_name)
+        # Prepare the input for the Authorizer
+        actor_id: str = metadata.get(self.actor_id_metadata_key)
+        actor: Dict[str, Any] = {
+            "type": self.actor_key,
+            "id": actor_id
+        }
+
+        resource: Dict[str, Any] = {
+            "type": self.resource_key,
+            "id": agent_name
+        }
+
+        # Consult the authorizer
+        is_authorized: bool = self.authorizer.authorize(actor, self.action, resource)
+        if not is_authorized:
+            # Not authorized
+            return None
+
+        # The network still needs to exist.
+        service_provider: AsyncAgentServiceProvider = self.allowed_agents.get(agent_name)
+        return service_provider
