@@ -150,9 +150,11 @@ class OpenFgaInit:
         will be modified to use the current policy.
         """
 
-        open_fga_policy_file: str = os.environ.get("OPEN_FGA_POLICY_FILE", "")
+        open_fga_policy_file: str = os.environ.get("FGA_POLICY_FILE", "")
         if not open_fga_policy_file:
-            raise ValueError("OPEN_FGA_POLICY_FILE env var not set")
+            # We expect a json containing the auth model policy from the following command:
+            # fga model transform --file ${POLICY_FILE_ROOT}.fga | python -m json.tool > ${POLICY_FILE_ROOT}.json
+            raise ValueError("FGA_POLICY_FILE env var not set")
 
         # Read the OpenFGA policy from configuration
         policy: Dict[str, Any] = {}
