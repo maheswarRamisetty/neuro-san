@@ -21,7 +21,7 @@ from leaf_common.config.resolver_util import ResolverUtil
 
 from neuro_san.service.authorization.interfaces.authorizer import Authorizer
 from neuro_san.service.authorization.null.null_authorizer import NullAuthorizer
-from neuro_san.service.authorization.openfga.openfga_authorizer import OpenFgaAuthorizer
+from neuro_san.service.authorization.openfga.open_fga_authorizer import OpenFgaAuthorizer
 
 
 class AuthorizerFactory:
