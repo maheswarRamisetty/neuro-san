@@ -109,7 +109,7 @@ class OpenFgaInit:
 
         # Look for our store
         use_store_name: str = os.environ.get("TEST_FGA_STORE_NAME", store_name)
-        self.logging.info("Using store name %s", use_store_name)
+        self.logger.info("Using store name %s", use_store_name)
         store_id: str = None
 
         # This is the first place that we attempt to connect to the OpenFGA server.
