@@ -88,20 +88,9 @@ Then answer with a JSON message that has two keys:
             "function": {
                 "description": """
 You are an API that updates the running cost of the MusicNerdPro service.
-                """,
-                "parameters": {
-                    # No parameters are needed for this function.
-                    "type": "object",
-                    "properties": {
-                        "type_of_work": {
-                            "type": "string",
-                            "description": "The type of work that's being done. E.g. 'answering a question', 'searching for information', etc."
-                        },
-                    },
-                    "required": []
-                }
+                """
             },
-            "class": "accountant_sly.AccountantSly"
+            "class": "accountant.Accountant"
         },
     ]
 }
