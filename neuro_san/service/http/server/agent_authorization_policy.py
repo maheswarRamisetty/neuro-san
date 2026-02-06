@@ -17,6 +17,7 @@
 
 from typing import Any
 from typing import Dict
+from typing import List
 
 from os import environ
 
@@ -29,8 +30,8 @@ from neuro_san.service.generic.async_agent_service_provider import AsyncAgentSer
 
 class AgentAuthorizationPolicy(AgentAuthorizer):
     """
-    Abstract interface implementing some policy
-    of allowing to route incoming requests to an agent.
+    AgentAuthorizer implementation that uses authorization policy to answer
+    questions about agents (if any authorization policy is desired at all).
     """
 
     def __init__(self, allowed_agents: Dict[str, AsyncAgentServiceProvider]):
@@ -48,7 +49,7 @@ class AgentAuthorizationPolicy(AgentAuthorizer):
         self.resource_key: str = environ.get("AGENT_AUTHORIZER_RESOURCE_KEY", "AgentNetwork")
         self.action: str = environ.get("AGENT_AUTHORIZER_ALLOW_ACTION", Permission.READ.value)
 
-    async def allow(self, agent_name: str, metadata: Dict[str, Any]) -> AsyncAgentServiceProvider:
+    async def allow_agent(self, agent_name: str, metadata: Dict[str, Any]) -> AsyncAgentServiceProvider:
         """
         :param agent_name: name of an agent
         :return: instance of AsyncAgentService if routing requests is allowed for this agent;
@@ -75,3 +76,11 @@ class AgentAuthorizationPolicy(AgentAuthorizer):
         # The network still needs to exist.
         service_provider: AsyncAgentServiceProvider = self.allowed_agents.get(agent_name)
         return service_provider
+
+    async def list_agents(self, metadata: Dict[str, Any]) -> List[str]:
+        """
+        What is the list of allowed agents for this request?
+        :param metadata: metadata from the request
+        :return: a list of agent names allowed for this request
+        """
+        raise NotImplementedError

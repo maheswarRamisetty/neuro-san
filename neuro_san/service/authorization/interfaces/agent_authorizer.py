@@ -17,20 +17,31 @@
 
 from typing import Any
 from typing import Dict
+from typing import List
 
 from neuro_san.service.generic.async_agent_service_provider import AsyncAgentServiceProvider
 
 
 class AgentAuthorizer:
     """
-    Abstract interface implementing some policy
-    of allowing to route incoming requests to an agent.
+    Interface for authorizing agent specifics given metadata from a request.
     """
 
-    async def allow(self, agent_name: str, metadata: Dict[str, Any]) -> AsyncAgentServiceProvider:
+    async def allow_agent(self, agent_name: str, metadata: Dict[str, Any]) -> AsyncAgentServiceProvider:
         """
+        Is the request allowed for this agent?
+
         :param agent_name: name of an agent
+        :param metadata: metadata from the request
         :return: instance of AsyncAgentService if routing requests is allowed for this agent;
                  None otherwise
+        """
+        raise NotImplementedError
+
+    async def list_agents(self, metadata: Dict[str, Any]) -> List[str]:
+        """
+        What is the list of allowed agents for this request?
+        :param metadata: metadata from the request
+        :return: a list of agent names allowed for this request
         """
         raise NotImplementedError
