@@ -18,6 +18,7 @@
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Set
 
 from os import environ
 
@@ -83,4 +84,29 @@ class AgentAuthorizationPolicy(AgentAuthorizer):
         :param metadata: metadata from the request
         :return: a list of agent names allowed for this request
         """
-        raise NotImplementedError
+        # Prepare the input for the Authorizer
+        actor_id: str = metadata.get(self.actor_id_metadata_key)
+        actor: Dict[str, Any] = {
+            "type": self.actor_key,
+            "id": actor_id
+        }
+
+        resource: Dict[str, Any] = {
+            "type": self.resource_key
+            # Do not use "id" as a specific key, as we can list multitudes
+        }
+
+        # Call the authorizer to see what agents are allowed
+        listed_agents: List[str] = self.allowed_agents.keys()
+        authorized_agents: List[str] = self.authorizer.list(actor, self.action, resource)
+        if authorized_agents:
+
+            # Authorizer specifically has something to say, so listen
+            # by taking the intersection of what the authorizer allows and what exists
+
+            authorized_set: Set[str] = set(authorized_agents)
+            existing_set: Set[str] = set(listed_agents)
+            listed_set: Set[str] = authorized_set.intersection(existing_set)
+            listed_agents = list(listed_set)
+
+        return listed_agents
