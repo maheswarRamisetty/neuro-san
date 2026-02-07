@@ -187,8 +187,10 @@ class McpToolsProcessor:
         if result_structure is not None:
             call_result["result"]["structuredContent"] = result_structure
             # For backward compatibility, also add text version of structure:
-            structure_str: str = f"```json\n{json.dumps(result_structure, indent=2)}\n```"
-            result_text = result_text + structure_str
+            structure_data: Dict[str, Any] = result_structure.get("structure", None)
+            if structure_data is not None:
+                structure_str: str = f"```json\n{json.dumps(structure_data, indent=2)}\n```"
+                result_text = result_text + structure_str
         call_result["result"]["content"][0]["text"] = McpRequestUtil.safe_message(result_text)
         return call_result
 
@@ -219,9 +221,26 @@ class McpToolsProcessor:
         if response_type == "AGENT_FRAMEWORK":
             text: str = response_part_dict.get("text", None)
             # For final response, there could be chat_context structured data we need to return:
-            structure_data: Dict[str, Any] = response_part_dict.get("chat_context", None)
+            structure_data: Dict[str, Any] = self.construct_mcp_structed_content(response_part_dict)
             return text, structure_data
         return None, None
+
+    def construct_mcp_structed_content(self, response_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Construct MCP structured content dictionary from the given streaming chat response dictionary.
+        :param response_dict: streaming chat response dictionary;
+        :return: structured content dictionary or None
+        """
+        structure_data: Dict[str, Any] = response_dict.get("structure", None)
+        chat_context_data: Dict[str, Any] = response_dict.get("chat_context", None)
+        if structure_data is None and chat_context_data is None:
+            return None
+        result: Dict[str, Any] = {}
+        if structure_data is not None:
+            result["structure"] = structure_data
+        if chat_context_data is not None:
+            result["chat_context"] = chat_context_data
+        return result
 
     def _get_chat_input_request(self,
                                 user_message: Dict[str, Any],
