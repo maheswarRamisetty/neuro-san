@@ -185,6 +185,7 @@ class McpToolsProcessor:
         }
         # Construct actual tool call result:
         if result_structure is not None:
+            # "structuredContent" is MCP standard key for content with additional structure.
             call_result["result"]["structuredContent"] = result_structure
             # For backward compatibility, also add text version of structure:
             structure_data: Dict[str, Any] = result_structure.get("structure", None)

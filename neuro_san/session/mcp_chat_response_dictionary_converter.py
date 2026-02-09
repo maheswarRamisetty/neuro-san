@@ -50,6 +50,7 @@ class McpChatResponseDictionaryConverter(DictionaryConverter):
         content_seq: Sequence[Dict[str, Any]] = result.get("content", [])
         if len(content_seq) == 0:
             return empty
+        # "structuredContent" is MCP standard key for content with additional structure.
         structured_data: Dict[str, Any] = result.get("structuredContent", None)
         response: Dict[str, Any] = content_seq[0]
         final_response: Dict[str, Any] = {
