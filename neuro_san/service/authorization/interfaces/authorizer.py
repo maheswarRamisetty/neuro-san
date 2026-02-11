@@ -25,7 +25,7 @@ class Authorizer:
     This is based on what we need from what packages like OpenFGA or Oso provide.
     """
 
-    def authorize(self, actor: Dict[str, Any], action: str, resource: Dict[str, Any]) -> bool:
+    async def authorize(self, actor: Dict[str, Any], action: str, resource: Dict[str, Any]) -> bool:
         """
         :param actor: The actor dictionary with the keys "type" and "id" identifying what
                       is seeking permission.  Most often this is of the form:
@@ -47,7 +47,7 @@ class Authorizer:
         """
         raise NotImplementedError
 
-    def grant(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> bool:
+    async def grant(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> bool:
         """
         :param actor: The actor dictionary with the keys "type" and "id" identifying what
                       will be permitted.  Most often this is of the form:
@@ -68,7 +68,7 @@ class Authorizer:
         """
         raise NotImplementedError
 
-    def revoke(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> bool:
+    async def revoke(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> bool:
         """
         :param actor: The actor dictionary with the keys "type" and "id" identifying what
                       will no longer be permitted.  Most often this is of the form:
@@ -89,7 +89,7 @@ class Authorizer:
         """
         raise NotImplementedError
 
-    def list(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> List[str]:
+    async def list(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> List[str]:
         """
         Return a list of resource ids that the actor has the given relation to,
         as per the graph specified by the authorization model.
@@ -116,7 +116,7 @@ class Authorizer:
         """
         raise NotImplementedError
 
-    def query(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> List[str]:
+    async def query(self, actor: Dict[str, Any], relation: str, resource: Dict[str, Any]) -> List[str]:
         """
         Instead of a boolean answer from authorize() above, this method gives a list
         of resources of the given resource type (in the dict) that the actor has the
