@@ -166,8 +166,13 @@ class HttpServer(AgentAuthorizer, AgentStateListener):
 
         if startables:
             for startable in startables:
-                with contextlib.suppress(Exception):
-                    startable.start()
+                if isinstance(startable, Startable):
+                    try:
+                        startable.start()
+                    except Exception as exception:
+                        self.logger.error(
+                            {}, "Failed to start %s: %s",
+                            startable.__class__.__name__, str(exception))
 
         tornado.ioloop.IOLoop.current().start()
         self.logger.info({}, "Http server stopped.")
