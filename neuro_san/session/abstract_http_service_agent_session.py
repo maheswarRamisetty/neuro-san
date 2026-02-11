@@ -129,6 +129,6 @@ class AbstractHttpServiceAgentSession(AgentSessionConstants):
            need to be well known.  If you're unfamiliar with this process, it's a big deal.
            Try regular http instead.
         10. Is your server running running with an AGENT_AUTHORIZER?  If so check your
-            authorization policy/database to be sure the user has the correct permissions.
+            authorization policy/database to be sure the user has the correct permissions for the network.
         """
         return message
