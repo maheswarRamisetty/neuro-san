@@ -16,6 +16,7 @@
 # END COPYRIGHT
 from typing import Any
 from typing import Dict
+from typing import Tuple
 
 from logging import getLogger
 from logging import Logger
@@ -72,13 +73,15 @@ class OpenFgaInit:
         the first time around for any given store_name.
         """
         open_fga_client: OpenFgaClient = self.initialize_one_client()
+        store_id: str = None
         async with open_fga_client as client:
-            open_fga_client = await self.maybe_initialize_store(client, store_name)
+            open_fga_client, store_id = await self.maybe_initialize_store(client, store_name)
 
         async with open_fga_client as client:
             await self.prepare_policy(client)
             await self.sync(client)
 
+        open_fga_client = self.initialize_one_client(store_id=store_id)
         return open_fga_client
 
     @staticmethod
@@ -117,7 +120,8 @@ class OpenFgaInit:
 
         return fga_client
 
-    async def maybe_initialize_store(self, open_fga_client: OpenFgaClient, store_name: str) -> OpenFgaClient:
+    async def maybe_initialize_store(self, open_fga_client: OpenFgaClient, store_name: str) \
+            -> Tuple[OpenFgaClient, str]:
         """
         Determines whether or not the fact store needs one-time initialization
         from ground-zero.  Logic from:
@@ -162,7 +166,7 @@ class OpenFgaInit:
         # From here on, always create a new client with the store_id configured
         new_client: OpenFgaClient = self.initialize_one_client(store_id)
 
-        return new_client
+        return new_client, store_id
 
     async def prepare_policy(self, open_fga_client: OpenFgaClient):
         """
