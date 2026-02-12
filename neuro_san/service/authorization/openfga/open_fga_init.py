@@ -178,7 +178,8 @@ class OpenFgaInit:
         # Read the OpenFGA policy from configuration
         policy: Dict[str, Any] = {}
         async with aiofiles.open(open_fga_policy_file, "r", encoding="utf-8") as policy_file:
-            policy = json.load(policy_file)
+            content: str = await policy_file.read()
+            policy = json.loads(content)
 
         found_auth_model: str = await self.find_auth_model(open_fga_client, policy)
 
