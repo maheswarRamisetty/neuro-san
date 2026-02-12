@@ -46,7 +46,7 @@ class OpenFgaAuthorizer(AbstractAuthorizer):
         self.debug: bool = environ.get("AGENT_DEBUG_AUTH") is not None
         self.fail_on_unauthorized: bool = environ.get("AGENT_DEBUG_AUTH") == "hard"
 
-        self.fga_client: self.openfga_sdk.sync.OpenFgaClient = fga_client
+        self.fga_client: self.openfga_sdk.client.client.OpenFgaClient = fga_client
         if self.fga_client is None:
             self.fga_client = OpenFgaClientCache.get()
 
@@ -102,7 +102,7 @@ class OpenFgaAuthorizer(AbstractAuthorizer):
                                            relation=use_action,
                                            object=f"{use_resource.get('type')}:{use_resource.get('id')}")
 
-        check_response: CheckResponse = self.fga_client.check(check_request)
+        check_response: CheckResponse = await self.fga_client.check(check_request)
         authorized = check_response.allowed
 
         if not authorized:
@@ -178,7 +178,7 @@ class OpenFgaAuthorizer(AbstractAuthorizer):
         body = ClientListObjectsRequest(user=request_user,
                                         relation=relation,
                                         type=resource_type)
-        response: ListObjectsResponse = self.fga_client.list_objects(body, options)
+        response: ListObjectsResponse = await self.fga_client.list_objects(body, options)
 
         for one_object in response.objects:
             # Results come in the format of a single string "<type>:<identifier>"
@@ -245,7 +245,7 @@ class OpenFgaAuthorizer(AbstractAuthorizer):
         body = ReadRequestTupleKey(user=request_user,
                                    relation=relation,
                                    object=request_object)
-        response: ReadResponse = self.fga_client.read(body, options)
+        response: ReadResponse = await self.fga_client.read(body, options)
 
         # Process the response
         retval: List[str] = []
@@ -323,7 +323,7 @@ class OpenFgaAuthorizer(AbstractAuthorizer):
         #       in open_fga_init() is not the one actually landing in the server.
         retval: bool = True
         try:
-            _ = self.fga_client.write(body)
+            _ = await self.fga_client.write(body)
         except self.openfga_sdk.exceptions.ValidationException as err:
             if (str(err).find("tuple to be written already existed") > 0) and self.debug:
                 self.logger.info("Grant already exists: %s:%s : %s on %s:%s",
@@ -384,7 +384,7 @@ class OpenFgaAuthorizer(AbstractAuthorizer):
         #       in open_fga_init() is not the one actually landing in the server.
         retval: bool = True
         try:
-            _ = self.fga_client.write(body)
+            _ = await self.fga_client.write(body)
         except self.openfga_sdk.exceptions.ValidationException as err:
             if (str(err).find("tuple to be deleted did not exist") > 0) and self.debug:
                 self.logger.info("Revoke already performed: %s:%s : %s on %s:%s",

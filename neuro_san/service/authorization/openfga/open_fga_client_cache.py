@@ -23,9 +23,9 @@ from logging import Logger
 import os
 
 from threading import get_ident
-from threading import Lock
+from threading import Lock  # DEF need async
 
-from openfga_sdk.sync import OpenFgaClient
+from openfga_sdk.client.client import OpenFgaClient
 
 from neuro_san.service.authorization.openfga.open_fga_init import OpenFgaInit
 
@@ -119,7 +119,8 @@ class OpenFgaClientCache:
             if fga_client is None:
 
                 self.logger.warning("No client for store_name %s", store_name)
-                fga_client = OpenFgaInit().initialize_client_for_store(store_name)
+                init = OpenFgaInit()
+                fga_client = await init.initialize_client_for_store(store_name)
 
                 self.client_map[map_key] = fga_client
 

@@ -32,7 +32,7 @@ from openfga_sdk.models.list_stores_response import ListStoresResponse
 from openfga_sdk.models.read_authorization_models_response import ReadAuthorizationModelsResponse
 from openfga_sdk.models.write_authorization_model_request import WriteAuthorizationModelRequest
 from openfga_sdk.models.write_authorization_model_response import WriteAuthorizationModelResponse
-from openfga_sdk.sync import OpenFgaClient
+from openfga_sdk.client.client import OpenFgaClient
 
 
 class OpenFgaInit:
@@ -60,22 +60,22 @@ class OpenFgaInit:
         This is not to be used by workaday client code.
         Use OpenFgaClientCache.get() instead.
         """
-        self.open_fga_client: OpenFgaClient = None
         self.logger: Logger = getLogger(self.__class__.__name__)
 
-    def initialize_client_for_store(self, store_name: str) -> OpenFgaClient:
+    async def initialize_client_for_store(self, store_name: str) -> OpenFgaClient:
         """
         Initialize a client for general usage.
         This might involve initializing a whole bunch of other stuff if the OpenFGA
         infrastructure has not yet been set up and so is expected to take awhile
         the first time around for any given store_name.
         """
-        self.open_fga_client = self.initialize_one_client()
-        self.open_fga_client = self.maybe_initialize_store(store_name)
-        self.open_fga_client = self.prepare_policy()
-        self.sync()
+        open_fga_client: OpenFgaClient = self.initialize_one_client()
+        with open_fga_client as client:
+            await self.maybe_initialize_store(client, store_name)
+            await self.prepare_policy(client)
+            await self.sync(client)
 
-        return self.open_fga_client
+        return open_fga_client
 
     @staticmethod
     def initialize_one_client(store_id: str = None, model_id: str = None) -> OpenFgaClient:
@@ -113,13 +113,14 @@ class OpenFgaInit:
 
         return fga_client
 
-    def maybe_initialize_store(self, store_name: str) -> OpenFgaClient:
+    async def maybe_initialize_store(self, open_fga_client: OpenFgaClient, store_name: str):
         """
         Determines whether or not the fact store needs one-time initialization
         from ground-zero.  Logic from:
             https://openfga.dev/docs/getting-started/create-store
 
         :param open_fga_client: An OpenFgaClient to make the determination about the store
+        :param store_name: The name of the store
         :return: Same or different OpenFgaClient that is initialized to talk to the store.
         """
 
@@ -130,7 +131,7 @@ class OpenFgaInit:
 
         # This is the first place that we attempt to connect to the OpenFGA server.
         try:
-            response: ListStoresResponse = self.open_fga_client.list_stores()
+            response: ListStoresResponse = await open_fga_client.list_stores()
 
         except FgaValidationException as exception:
             # Make sure the error reflects what is going on better
@@ -148,7 +149,7 @@ class OpenFgaInit:
         # Create the store and a new client if not found
         if not store_id:
             body = CreateStoreRequest(name=use_store_name)
-            response: CreateStoreResponse = self.open_fga_client.create_store(body)
+            response: CreateStoreResponse = await open_fga_client.create_store(body)
             store_id: str = response.id
             # Checkmarx flags this as a destination for Privacy Violation path 3
             # This is a False Positive. "store_id" itself is not actually sensitive information.
@@ -159,7 +160,7 @@ class OpenFgaInit:
 
         return new_client
 
-    def prepare_policy(self) -> OpenFgaClient:
+    async def prepare_policy(self, open_fga_client: OpenFgaClient):
         """
         Prepare authorization policy for upload
         By the end of this method the existing open_fga_client member
@@ -177,20 +178,18 @@ class OpenFgaInit:
         with open(open_fga_policy_file, "r", encoding="utf-8") as policy_file:
             policy = json.load(policy_file)
 
-        found_auth_model: str = self.find_auth_model(policy)
+        found_auth_model: str = await self.find_auth_model(open_fga_client, policy)
 
         # Do we need to store a new version of the auth model?
         if found_auth_model is None:
-            found_auth_model = self.update_auth_model(policy)
+            found_auth_model = await self.update_auth_model(open_fga_client, policy)
 
         # For now. Needs more to set the model up
         # Checkmarx flags this as a destination for Privacy Violation path 1 and 2
         # This is a False Positive. Any auth model id itself is not actually sensitive information.
         self.logger.info("FGA auth model id %s", found_auth_model)
 
-        return self.open_fga_client
-
-    def find_auth_model(self, policy: Dict[str, Any]) -> str:
+    async def find_auth_model(self, open_fga_client: OpenFgaClient, policy: Dict[str, Any]) -> str:
         """
         Looks for an existing authorization model that matches the
         model_info dictionary in the policy file.
@@ -202,7 +201,7 @@ class OpenFgaInit:
         _ = policy
 
         # Ask about existing auth models associated with the store
-        response: ReadAuthorizationModelsResponse = self.open_fga_client.read_authorization_models()
+        response: ReadAuthorizationModelsResponse = await open_fga_client.read_authorization_models()
 
         # Look for the authorization model we specified.
         found_auth_model: str = None
@@ -220,12 +219,12 @@ class OpenFgaInit:
                 break
 
             # Callout to allow for self-updating authorization servers
-            if self.is_seen_auth_model(auth_model.id):
+            if await self.is_seen_auth_model(open_fga_client, auth_model.id):
                 found_auth_model = auth_model.id
 
         return found_auth_model
 
-    def update_auth_model(self, policy: Dict[str, Any]) -> str:
+    async def update_auth_model(self, open_fga_client: OpenFgaClient, policy: Dict[str, Any]) -> str:
         """
         Updates the auth model and associates it with the store.
         :param policy: The dictionary from the auth model JSON file
@@ -243,30 +242,32 @@ class OpenFgaInit:
             conditions=policy.get("conditions"),
             local_vars_configuration=policy.get("local_vars_configuration"))
         response: WriteAuthorizationModelResponse = \
-            self.open_fga_client.write_authorization_model(request)
+            await open_fga_client.write_authorization_model(request)
         auth_model_id = response.authorization_model_id
 
         # Update the model version and checksum now that we've written the model itself.
-        self.open_fga_client.set_authorization_model_id(auth_model_id)
+        # One of the few methods that is not async.
+        open_fga_client.set_authorization_model_id(auth_model_id)
 
         return auth_model_id
 
     @staticmethod
-    def remove_store_for_testing(open_fga_client: OpenFgaClient):
+    async def remove_store_for_testing(open_fga_client: OpenFgaClient):
         """
         Removes the store associated with the given client.
         :param open_fga_client: The client whose store is to be deleted
         """
         if open_fga_client is not None:
-            open_fga_client.delete_store()
+            await open_fga_client.delete_store()
 
-    def sync(self) -> None:
+    async def sync(self, open_fga_client: OpenFgaClient) -> None:
         """
         Optional method to synchronize the OpenFGA server with any new model changes.
         """
         # Do nothing, but allow overrides for specific circumstances.
+        _ = open_fga_client
 
-    def is_seen_auth_model(self, auth_model_id: str) -> bool:
+    async def is_seen_auth_model(self, open_fga_client: OpenFgaClient, auth_model_id: str) -> bool:
         """
         Optional method to allow for self-updating authorization servers
         :param auth_model_id: The auth model id to look for
