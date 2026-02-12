@@ -23,8 +23,8 @@ from neuro_san.service.authorization.interfaces.abstract_authorizer import Abstr
 
 class NullAuthorizer(AbstractAuthorizer):
     """
-    An interface for authorization.
-    This is based on what we need from what packages like OpenFGA or Oso provide.
+    Null implementation of the Authorizer interface that lets all requests through.
+    This gives us the behavior we have had since the beginning.
     """
 
     async def authorize(self, actor: Dict[str, Any], action: str, resource: Dict[str, Any]) -> bool:
