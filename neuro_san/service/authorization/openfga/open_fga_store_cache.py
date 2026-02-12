@@ -15,14 +15,19 @@
 #
 # END COPYRIGHT
 
+from typing import Any
 from typing import Dict
+from typing import Type
 
 from os import environ
 from threading import Lock
 
-from openfga_sdk.client.client import OpenFgaClient
+from leaf_common.config.resolver_util import ResolverUtil
 
-from neuro_san.service.authorization.openfga.open_fga_init import OpenFgaInit
+# Lazy loading of optional openfga_sdk types.
+OpenFgaClient: Type[Any] = ResolverUtil.create_type("openfga_sdk.client.client.OpenFgaClient",
+                                                    raise_if_not_found=False,
+                                                    install_if_missing="openfga-sdk")
 
 
 class OpenFgaStoreCache:
@@ -71,6 +76,10 @@ class OpenFgaStoreCache:
             store_name = OpenFgaStoreCache.DEFAULT_STORE_NAME
 
         store_id: str = OpenFgaStoreCache.store_name_to_id.get(store_name)
+
+        # Lazy loading of OpenFgaInit class which directly uses OpenFga SDK types.
+        # pylint: disable=import-outside-toplevel
+        from neuro_san.service.authorization.openfga.open_fga_init import OpenFgaInit
 
         if store_id is None:
             # Note: Synchronous lock is required here
