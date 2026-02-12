@@ -23,7 +23,7 @@ from os import environ
 
 from neuro_san.service.authorization.interfaces.abstract_authorizer import AbstractAuthorizer
 from neuro_san.service.authorization.interfaces.authorizer import Authorizer
-from neuro_san.service.authorization.openfga.open_fga_client_cache import OpenFgaClientCache
+from neuro_san.service.authorization.openfga.open_fga_store_cache import OpenFgaStoreCache
 
 
 class OpenFgaAuthorizer(AbstractAuthorizer):
@@ -59,7 +59,7 @@ class OpenFgaAuthorizer(AbstractAuthorizer):
             await self.fga_client.close()
 
         # Open a new client
-        self.fga_client = await OpenFgaClientCache.get()
+        self.fga_client = await OpenFgaStoreCache.get_client()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:

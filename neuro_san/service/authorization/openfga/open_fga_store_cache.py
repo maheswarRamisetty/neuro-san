@@ -25,7 +25,7 @@ from openfga_sdk.client.client import OpenFgaClient
 from neuro_san.service.authorization.openfga.open_fga_init import OpenFgaInit
 
 
-class OpenFgaClientCache:
+class OpenFgaStoreCache:
     """
     Per the Open FGA docs here:
         https://github.com/openfga/python-sdk?tab=readme-ov-file#initializing-the-api-client
@@ -56,19 +56,6 @@ class OpenFgaClientCache:
     DEFAULT_STORE_NAME: str = environ.get("AGENT_FGA_STORE_NAME", "default")
 
     @classmethod
-    async def get(cls, store_name: str = None) -> OpenFgaClient:
-        """
-        :return: The singleton instance of this class
-        """
-        if store_name is None:
-            # This allows workaday code to not worry about store names,
-            # including when it is called by unit tests.
-            store_name = OpenFgaClientCache.DEFAULT_STORE_NAME
-
-        fga_client: OpenFgaClient = await cls.get_client(store_name)
-        return fga_client
-
-    @classmethod
     async def get_client(cls, store_name: str = None) -> OpenFgaClient:
         """
         :param store_name: The store name to use for fact storage.
@@ -81,16 +68,16 @@ class OpenFgaClientCache:
         if store_name is None:
             # This allows workaday code to not worry about store names,
             # including when it is called by unit tests.
-            store_name = OpenFgaClientCache.DEFAULT_STORE_NAME
+            store_name = OpenFgaStoreCache.DEFAULT_STORE_NAME
 
-        store_id: str = OpenFgaClientCache.store_name_to_id.get(store_name)
+        store_id: str = OpenFgaStoreCache.store_name_to_id.get(store_name)
 
         if store_id is None:
             # Note: Synchronous lock is required here
             init = OpenFgaInit()
-            with OpenFgaClientCache.lock:
+            with OpenFgaStoreCache.lock:
                 store_id = await init.initialize_store(store_name)
-                OpenFgaClientCache.store_name_to_id[store_name] = store_id
+                OpenFgaStoreCache.store_name_to_id[store_name] = store_id
 
         fga_client: OpenFgaClient = OpenFgaInit.initialize_one_client(store_id=store_id)
 
@@ -107,22 +94,22 @@ class OpenFgaClientCache:
         """
 
         # Do not hold the lock as the caller will be holding for us.
-        store_id: str = OpenFgaClientCache.store_name_to_id.get(store_name)
+        store_id: str = OpenFgaStoreCache.store_name_to_id.get(store_name)
         if store_id is not None:
 
             # Do not actually remove the default store as that is what the app
             # will be using. Remove any other store for testing though.
-            if OpenFgaClientCache.DEFAULT_STORE_NAME != store_name:
-                del OpenFgaClientCache.store_name_to_id[store_name]
+            if OpenFgaStoreCache.DEFAULT_STORE_NAME != store_name:
+                del OpenFgaStoreCache.store_name_to_id[store_name]
 
     @classmethod
     def reset_for_testing(cls):
         """
         Reset the instance for testing purposes only.
         """
-        with OpenFgaClientCache.lock:
+        with OpenFgaStoreCache.lock:
 
-            if len(OpenFgaClientCache.store_name_to_id) > 0:
+            if len(OpenFgaStoreCache.store_name_to_id) > 0:
 
                 # Close all the clients registered in the map
                 # Need to add remove_from_map=False or else will get this error:
