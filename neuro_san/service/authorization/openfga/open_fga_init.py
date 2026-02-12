@@ -17,12 +17,12 @@
 from typing import Any
 from typing import Dict
 
-import aiofiles
-import json
-import os
-
 from logging import getLogger
 from logging import Logger
+
+import json
+import os
+import aiofiles
 
 from openfga_sdk import ClientConfiguration
 from openfga_sdk.credentials import CredentialConfiguration
