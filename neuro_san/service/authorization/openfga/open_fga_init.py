@@ -73,7 +73,9 @@ class OpenFgaInit:
         """
         open_fga_client: OpenFgaClient = self.initialize_one_client()
         async with open_fga_client as client:
-            await self.maybe_initialize_store(client, store_name)
+            open_fga_client = await self.maybe_initialize_store(client, store_name)
+
+        async with open_fga_client as client:
             await self.prepare_policy(client)
             await self.sync(client)
 
@@ -115,7 +117,7 @@ class OpenFgaInit:
 
         return fga_client
 
-    async def maybe_initialize_store(self, open_fga_client: OpenFgaClient, store_name: str):
+    async def maybe_initialize_store(self, open_fga_client: OpenFgaClient, store_name: str) -> OpenFgaClient:
         """
         Determines whether or not the fact store needs one-time initialization
         from ground-zero.  Logic from:
