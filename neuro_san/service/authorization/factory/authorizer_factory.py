@@ -15,6 +15,8 @@
 #
 # END COPYRIGHT
 
+from logging import Logger
+from logging import getLogger
 from os import environ
 
 from leaf_common.config.resolver_util import ResolverUtil
@@ -42,5 +44,11 @@ class AuthorizerFactory:
                                                       Authorizer)
         else:
             authorizer = NullAuthorizer()
+
+        if authorizer is None:
+            raise Exception(f"Unable to create an Authorizer instance from {auth_classname}")
+
+        logger: Logger = getLogger(__name__)
+        logger.info("Using Authorizer: %s.%s", authorizer.__class__.__module__, authorizer.__class__.__name__)
 
         return authorizer
