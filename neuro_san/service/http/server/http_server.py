@@ -32,7 +32,6 @@ from neuro_san.internals.interfaces.agent_network_provider import AgentNetworkPr
 from neuro_san.internals.interfaces.agent_state_listener import AgentStateListener
 from neuro_san.internals.interfaces.agent_storage_source import AgentStorageSource
 from neuro_san.internals.network_providers.agent_network_storage import AgentNetworkStorage
-from neuro_san.service.authorization.interfaces.agent_authorizer import AgentAuthorizer
 from neuro_san.service.generic.agent_server_logging import AgentServerLogging
 from neuro_san.service.generic.async_agent_service_provider import AsyncAgentServiceProvider
 from neuro_san.service.http.config.http_server_config import HttpServerConfig
@@ -43,13 +42,14 @@ from neuro_san.service.http.handlers.health_check_handler import HealthCheckHand
 from neuro_san.service.http.handlers.openapi_publish_handler import OpenApiPublishHandler
 from neuro_san.service.http.handlers.streaming_chat_handler import StreamingChatHandler
 from neuro_san.service.http.logging.http_logger import HttpLogger
-from neuro_san.service.mcp.handlers.mcp_root_handler import McpRootHandler
 from neuro_san.service.http.server.agent_authorization_policy import AgentAuthorizationPolicy
 from neuro_san.service.http.server.http_server_app import HttpServerApp
 from neuro_san.service.http.server.resources_usage_logger import ResourcesUsageLogger
+from neuro_san.service.interfaces.agent_authorizer import AgentAuthorizer
 from neuro_san.service.interfaces.agent_server import AgentServer
 from neuro_san.service.interfaces.event_loop_logger import EventLoopLogger
 from neuro_san.service.interfaces.startable import Startable
+from neuro_san.service.mcp.handlers.mcp_root_handler import McpRootHandler
 from neuro_san.service.utils.server_context import ServerContext
 from neuro_san.service.utils.server_status import ServerStatus
 
