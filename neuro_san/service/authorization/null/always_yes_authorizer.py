@@ -21,10 +21,10 @@ from typing import List
 from neuro_san.service.authorization.interfaces.abstract_authorizer import AbstractAuthorizer
 
 
-class NullAuthorizer(AbstractAuthorizer):
+class AlwaysYesAuthorizer(AbstractAuthorizer):
     """
-    Null implementation of the Authorizer interface that lets all requests through.
-    This gives us the behavior we have had since the beginning.
+    Implementation of the Authorizer interface that lets all requests through.
+    This gives us the behavior we have had since the beginning of Neuro SAN.
     """
 
     async def authorize(self, actor: Dict[str, Any], action: str, resource: Dict[str, Any]) -> bool:

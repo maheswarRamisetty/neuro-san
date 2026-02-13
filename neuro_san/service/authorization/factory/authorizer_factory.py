@@ -22,7 +22,7 @@ from os import environ
 from leaf_common.config.resolver_util import ResolverUtil
 
 from neuro_san.service.authorization.interfaces.authorizer import Authorizer
-from neuro_san.service.authorization.null.null_authorizer import NullAuthorizer
+from neuro_san.service.authorization.null.always_yes_authorizer import AlwaysYesAuthorizer
 
 
 class AuthorizerFactory:
@@ -43,10 +43,11 @@ class AuthorizerFactory:
                                                       "AGENT_AUTHORIZER env var",
                                                       Authorizer)
         else:
-            authorizer = NullAuthorizer()
+            authorizer = AlwaysYesAuthorizer()
 
+        # We don't leave the room unless we have what we came for
         if authorizer is None:
-            raise Exception(f"Unable to create an Authorizer instance from {auth_classname}")
+            raise ValueError(f"Unable to create an Authorizer instance from env var AGENT_AUTHORIZER: {auth_classname}")
 
         logger: Logger = getLogger(__name__)
         logger.info("Using Authorizer: %s.%s", authorizer.__class__.__module__, authorizer.__class__.__name__)
