@@ -39,9 +39,8 @@ class AuthorizerFactory:
 
         auth_classname: str = environ.get("AGENT_AUTHORIZER")
         if auth_classname is not None and len(auth_classname) > 0:
-            authorizer = ResolverUtil.create_instance(auth_classname,
-                                                      "AGENT_AUTHORIZER env var",
-                                                      Authorizer)
+            # Note that this will raise an exception if the class is not found
+            authorizer = ResolverUtil.create_instance(auth_classname, "AGENT_AUTHORIZER env var", Authorizer)
         else:
             authorizer = AlwaysYesAuthorizer()
 
