@@ -297,6 +297,8 @@ ENV AGENT_MCP_ONLY="false"
 #   neuro_san.internals.authorization.null.always_yes_authorizer.AlwaysYesAuthorizer (default)
 #   neuro_san.internals.authorization.null.always_no_authorizer.AlwaysNoAuthorizer
 #   neuro_san.internals.authorization.openfga.open_fga_authorizer.OpenFgaAuthorizer
+# Feel free to make your own as long as it derives from this interface:
+#   neuro_san.internals.authorization.interfaces.authorizer.Authorizer
 ENV AGENT_AUTHORIZER=""
 
 # The request metadata field to use as the actor id for authorization
