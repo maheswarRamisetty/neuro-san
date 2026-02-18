@@ -1,0 +1,41 @@
+{
+    "metadata": {
+        "description": "Simple Claude-based agent network using AWS Bedrock.",
+        "tags": ["claude", "bedrock", "example"],
+        "sample_queries": [
+            "From earth, I approach a new planet and wish to send a short 2-word greeting to the new orb.",
+            "Explain LangChain in simple terms.",
+            "Write a very short greeting to developers."
+        ]
+    },
+
+    "llm_config": {
+        "model_name": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+        "region_name": "us-east-1",
+        "temperature": 0.2,
+        "max_tokens": 512
+    },
+
+    "tools": [
+        {
+            "name": "claude_agent",
+
+            # No parameters → makes this the Front Man
+            "function": {
+                "description": """
+I am a helpful AI assistant powered by Claude on AWS Bedrock.
+I respond clearly, concisely, and accurately.
+"""
+            },
+
+            "instructions": """
+You are Claude running on AWS Bedrock.
+You must respond clearly and concisely.
+Follow user instructions strictly.
+If the user asks for a specific format (e.g., two words),
+you must obey exactly.
+Do not add extra commentary.
+"""
+        }
+    ]
+}
